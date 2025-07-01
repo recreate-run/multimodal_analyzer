@@ -1,0 +1,32 @@
+# Media Analyzer CLI Configuration
+# Copy this file to config.yaml and customize as needed
+
+# Default settings
+default_model: "gemini/gemini-1.5-flash"
+default_word_count: 100
+default_prompt: "Describe this image in detail, including what you see, the setting, colors, composition, and any notable features or elements."
+
+# Processing limits
+max_concurrency: 5
+max_file_size_mb: 10
+
+# Supported image formats
+supported_image_formats:
+  - ".jpg"
+  - ".jpeg" 
+  - ".png"
+  - ".gif"
+  - ".bmp"
+  - ".tiff"
+  - ".webp"
+
+# Retry and timeout settings
+retry_attempts: 3
+timeout_seconds: 30
+
+# Custom prompts for different use cases
+custom_prompts:
+  technical: "Analyze this image from a technical perspective, describing the composition, lighting, camera settings if apparent, and photographic techniques used."
+  artistic: "Describe this image focusing on its artistic qualities, including style, mood, color palette, composition, and overall aesthetic impact."
+  commercial: "Describe this image for commercial or marketing purposes, highlighting key features, benefits, and appeal to potential customers."
+  accessibility: "Provide a detailed description of this image for accessibility purposes, including all visual elements that would help someone who cannot see the image understand its content."

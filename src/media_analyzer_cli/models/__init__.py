@@ -1,0 +1,1 @@
+"""Model interfaces for image analysis."""

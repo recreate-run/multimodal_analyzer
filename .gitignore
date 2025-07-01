@@ -1,0 +1,27 @@
+# Python
+*.pyc
+venv/
+.env
+*.db
+*.litellm_cache
+*.logs
+.cache/
+.pytest_cache/
+.ruff_cache/
+
+# Media
+*.mp4
+*.mp3
+*.wav
+*.m4a
+*.m4v
+*.mov
+*.avi
+*.mkv
+
+
+
+
+# IDE
+.cursor/
+.vscode/

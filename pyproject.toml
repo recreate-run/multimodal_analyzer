@@ -1,0 +1,95 @@
+[project]
+name = "media-analyzer"
+version = "0.1.0"
+description = "AI-powered media analysis tool for images and audio using multiple LLM providers"
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "click>=8.1.0",
+    "pillow>=10.0.0",
+    "litellm>=1.72.2",
+    "aiofiles>=24.0.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.0",
+    "tenacity>=8.0.0",
+    "tqdm>=4.66.0",
+    "loguru>=0.7.2",
+    "pandas>=2.0.0",
+    "rich>=13.0.0",
+    "nest-asyncio>=1.6.0",
+    "ffmpeg-python>=0.2.0",
+    "pydub>=0.25.0",
+    "pytest-cov>=6.2.1",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+media-analyzer = "media_analyzer_cli.cli:main"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.4.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=24.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.0.0",
+    "types-pillow>=10.0.0",
+    "types-pyyaml>=6.0.0",
+    "media-analyzer",
+]
+
+[tool.uv.sources]
+media-analyzer = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "--cov=media_analyzer --cov-report=term-missing"
+markers = [
+    "integration: marks tests as integration tests requiring API keys",
+    "slow: marks tests as slow running",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+select = [
+    "E",
+    "F",
+    "I",
+    "N",
+    "UP",
+    "S",
+    "B",
+    "A",
+    "C4",
+    "ICN",
+    "PIE",
+    "T20",
+    "Q",
+]
+ignore = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
