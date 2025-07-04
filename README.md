@@ -27,9 +27,9 @@ cd media-analyzer
 uv sync
 ```
 
-## Usage
+## Image Analysis Usage
 
-### Basic Commands
+### Basic Image Commands
 
 ```bash
 # Analyze single image
@@ -38,43 +38,11 @@ media-analyzer --type image --model gemini/gemini-2.5-flash --path photo.jpg
 # Batch process directory
 media-analyzer --type image --model gpt-4o-mini --path ./photos/ --output markdown
 
-# Transcribe audio
-media-analyzer --type audio --model whisper-1 --path audio.mp3 --audio-mode transcript
-
-# Analyze audio content
-media-analyzer --type audio --model gpt-4o-mini --path podcast.wav --audio-mode description
-
-# Analyze video content (Gemini only)
-media-analyzer --type video --model gemini/gemini-2.5-flash --path video.mp4 --video-mode description
-
 # Development installation (prefix with uv run)
 uv run media-analyzer --type image --model gemini/gemini-2.5-flash --path photo.jpg
 ```
 
-## Configuration
-
-Set your API keys via environment variables:
-
-```bash
-export OPENAI_API_KEY="your-openai-key"
-export ANTHROPIC_API_KEY="your-anthropic-key" 
-export GEMINI_API_KEY="your-gemini-key"
-```
-
-Optional configuration via environment variables:
-
-```bash
-# Video analysis settings
-export MAX_VIDEO_SIZE_MB=2048        # Maximum video file size (default: 2048MB)
-
-# General settings
-export MAX_CONCURRENCY=5             # Maximum concurrent requests (default: 5)
-export TIMEOUT_SECONDS=30            # Request timeout (default: 30)
-```
-
-## Examples
-
-### Image Analysis
+### Advanced Image Analysis
 
 ```bash
 # Custom prompt with word count
@@ -86,7 +54,19 @@ media-analyzer --type image --model gpt-4o-mini --path ./dataset/ \
   --recursive --concurrency 5 --output json --output-file results.json
 ```
 
-### Audio Processing
+## Audio Analysis Usage
+
+### Basic Audio Commands
+
+```bash
+# Transcribe audio
+media-analyzer --type audio --model whisper-1 --path audio.mp3 --audio-mode transcript
+
+# Analyze audio content
+media-analyzer --type audio --model gpt-4o-mini --path podcast.wav --audio-mode description
+```
+
+### Advanced Audio Processing
 
 ```bash
 # Batch transcription
@@ -98,7 +78,18 @@ media-analyzer --type audio --model gpt-4o-mini --path podcast.wav \
   --audio-mode description --prompt "Summarize key insights" --word-count 200
 ```
 
-### Video Analysis
+## Video Analysis Usage
+
+**Note**: Video analysis is currently restricted to Gemini models only due to native multimodal video support.
+
+### Basic Video Commands
+
+```bash
+# Analyze video content (Gemini only)
+media-analyzer --type video --model gemini/gemini-2.5-flash --path video.mp4 --video-mode description
+```
+
+### Advanced Video Analysis
 
 ```bash
 # Single video analysis
@@ -119,7 +110,6 @@ media-analyzer --type video --model gemini/gemini-2.5-flash --path tutorial.mp4 
 
 Supports any model available through [LiteLLM](https://docs.litellm.ai/docs/providers).
 
-**Video Analysis**: Currently restricted to Gemini models only due to native multimodal video support.
 
 ## Command Line Options
 
