@@ -1,12 +1,13 @@
-import pytest
-from click.testing import CliRunner
-from pathlib import Path
 import tempfile
-from pydub import AudioSegment
+from pathlib import Path
+
 import numpy as np
+from click.testing import CliRunner
+from pydub import AudioSegment
 
 from media_analyzer_cli.cli import main
-from .test_utils import get_test_audio_path, get_test_video_path
+
+from .test_utils import get_test_audio_path
 
 
 class TestAudioCLI:
@@ -15,43 +16,10 @@ class TestAudioCLI:
     def setup_method(self):
         """Set up test fixtures."""
         self.runner = CliRunner()
-        # Use real test audio file if available, otherwise create synthetic one
+        # Use real test audio file
         self.test_audio_path = get_test_audio_path()
-        if not self.test_audio_path.exists():
-            self.test_audio_path = self._create_test_audio_file()
-            self._using_synthetic_audio = True
-        else:
-            self._using_synthetic_audio = False
 
-    def teardown_method(self):
-        """Clean up test fixtures."""
-        # Only clean up if we created a synthetic audio file
-        if (
-            hasattr(self, "_using_synthetic_audio")
-            and self._using_synthetic_audio
-            and hasattr(self, "test_audio_path")
-            and self.test_audio_path.exists()
-        ):
-            self.test_audio_path.unlink()
 
-    def _create_test_audio_file(self):
-        """Create a test audio file."""
-        # Generate 1 second of sine wave audio
-        sample_rate = 44100
-        duration = 1.0
-        frequency = 440
-
-        t = np.linspace(0, duration, int(sample_rate * duration), False)
-        wave = np.sin(2 * np.pi * frequency * t)
-        audio_data = (wave * 16000).astype(np.int16)
-
-        audio = AudioSegment(
-            audio_data.tobytes(), frame_rate=sample_rate, sample_width=2, channels=1
-        )
-
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
-            audio.export(tmp_file.name, format="wav")
-            return Path(tmp_file.name)
 
     def test_cli_missing_type_parameter(self):
         """Test that CLI requires --type parameter."""
@@ -151,7 +119,7 @@ class TestAudioCLI:
         assert result.exit_code == 0
         assert "--type" in result.output
         assert "--audio-mode" in result.output
-        assert "Analysis type: image or audio" in result.output
+        assert "Analysis type: image, audio, or video" in result.output
         assert "Audio analysis mode" in result.output
 
     def test_cli_output_format_text_option(self):

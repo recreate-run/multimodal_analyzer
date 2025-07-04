@@ -7,15 +7,17 @@ from loguru import logger
 from .audio_analyzer import AudioAnalyzer
 from .config import Config
 from .image_analyzer import ImageAnalyzer
+from .video_analyzer import VideoAnalyzer
 
 
 @click.command()
 @click.option(
     "--type",
+    "type_",
     "-t",
     required=True,
-    type=click.Choice(["image", "audio"]),
-    help="Analysis type: image or audio",
+    type=click.Choice(["image", "audio", "video"]),
+    help="Analysis type: image, audio, or video",
 )
 @click.option(
     "--model",
@@ -36,10 +38,15 @@ from .image_analyzer import ImageAnalyzer
     help="Audio analysis mode (required for audio type)",
 )
 @click.option(
+    "--video-mode",
+    type=click.Choice(["description"]),
+    help="Video analysis mode (required for video type)",
+)
+@click.option(
     "--word-count",
     "-w",
     default=100,
-    help="Target description word count (for image or audio description mode)",
+    help="Target description word count (for image, audio description, or video description mode)",
 )
 @click.option("--prompt", help="Custom analysis prompt")
 @click.option(
@@ -68,10 +75,11 @@ from .image_analyzer import ImageAnalyzer
 )
 @click.version_option(package_name="media-analyzer")
 def main(
-    type: str,
+    type_: str,
     model: str,
     path: str,
     audio_mode: str | None,
+    video_mode: str | None,
     word_count: int,
     prompt: str | None,
     output: str,
@@ -81,15 +89,33 @@ def main(
     log_level: str,
     verbose: bool,
 ) -> None:
-    """AI-powered media analysis tool supporting both image and audio content."""
+    """AI-powered media analysis tool supporting image, audio, and video content."""
 
-    # Validate audio mode requirement
-    if type == "audio" and not audio_mode:
+    # Validate mode requirements
+    if type_ == "audio" and not audio_mode:
         raise click.ClickException("--audio-mode is required when --type is 'audio'")
+    
+    if type_ == "video" and not video_mode:
+        raise click.ClickException("--video-mode is required when --type is 'video'")
 
-    if type == "image" and audio_mode:
+    if type_ == "image" and audio_mode:
         raise click.ClickException(
             "--audio-mode should not be used when --type is 'image'"
+        )
+    
+    if type_ == "image" and video_mode:
+        raise click.ClickException(
+            "--video-mode should not be used when --type is 'image'"
+        )
+    
+    if type_ == "audio" and video_mode:
+        raise click.ClickException(
+            "--video-mode should not be used when --type is 'audio'"
+        )
+    
+    if type_ == "video" and audio_mode:
+        raise click.ClickException(
+            "--audio-mode should not be used when --type is 'video'"
         )
 
     # Configure logging
@@ -100,7 +126,7 @@ def main(
     config = Config.load()
 
     # Create appropriate analyzer
-    if type == "image":
+    if type_ == "image":
         analyzer = ImageAnalyzer(config)
 
         # Run image analysis
@@ -126,7 +152,7 @@ def main(
             logger.error(f"Image analysis failed: {e}")
             raise click.ClickException(str(e))
 
-    elif type == "audio":
+    elif type_ == "audio":
         analyzer = AudioAnalyzer(config)
 
         # Run audio analysis
@@ -151,6 +177,33 @@ def main(
 
         except Exception as e:
             logger.error(f"Audio analysis failed: {e}")
+            raise click.ClickException(str(e))
+
+    elif type_ == "video":
+        analyzer = VideoAnalyzer(config)
+
+        # Run video analysis
+        try:
+            result = asyncio.run(
+                analyzer.analyze(
+                    model=model,
+                    path=Path(path),
+                    mode=video_mode,
+                    word_count=word_count,
+                    prompt=prompt,
+                    output_format=output,
+                    output_file=output_file,
+                    recursive=recursive,
+                    concurrency=concurrency,
+                    verbose=verbose,
+                )
+            )
+
+            if not output_file:
+                click.echo(result)
+
+        except Exception as e:
+            logger.error(f"Video analysis failed: {e}")
             raise click.ClickException(str(e))
 
 

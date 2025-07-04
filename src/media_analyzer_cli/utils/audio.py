@@ -3,17 +3,16 @@
 import os
 import tempfile
 from pathlib import Path
-from typing import Union, Optional, Tuple
-import ffmpeg
-from pydub import AudioSegment
-from loguru import logger
 
+import ffmpeg
+from loguru import logger
+from pydub import AudioSegment
 
 # Supported audio formats
-AUDIO_EXTENSIONS = {'.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.wma'}
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac", ".wma"}
 
 # Supported video formats (for audio extraction)
-VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm', '.m4v'}
+VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm", ".m4v"}
 
 
 def is_audio_file(file_path: Path) -> bool:
@@ -70,7 +69,7 @@ def extract_audio_from_video(video_path: Path, output_format: str = "wav") -> Pa
     try:
         # Use ffmpeg to extract audio
         stream = ffmpeg.input(str(video_path))
-        stream = ffmpeg.output(stream, str(temp_audio_path), acodec='pcm_s16le' if output_format == 'wav' else None)
+        stream = ffmpeg.output(stream, str(temp_audio_path), acodec="pcm_s16le" if output_format == "wav" else None)
         ffmpeg.run(stream, overwrite_output=True, quiet=True)
         
         if not temp_audio_path.exists():
@@ -105,7 +104,7 @@ def get_audio_info(audio_path: Path) -> dict:
             "sample_rate": audio.frame_rate,
             "channels": audio.channels,
             "file_size_bytes": audio_path.stat().st_size,
-            "format": audio_path.suffix.lower().lstrip('.')
+            "format": audio_path.suffix.lower().lstrip(".")
         }
     except Exception as e:
         logger.error(f"Error getting audio info for {audio_path}: {e}")
@@ -115,12 +114,12 @@ def get_audio_info(audio_path: Path) -> dict:
             "sample_rate": 0,
             "channels": 0,
             "file_size_bytes": audio_path.stat().st_size,
-            "format": audio_path.suffix.lower().lstrip('.'),
+            "format": audio_path.suffix.lower().lstrip("."),
             "error": str(e)
         }
 
 
-def prepare_audio_for_transcription(file_path: Path) -> Tuple[Path, bool]:
+def prepare_audio_for_transcription(file_path: Path) -> tuple[Path, bool]:
     """
     Prepare audio file for transcription.
     

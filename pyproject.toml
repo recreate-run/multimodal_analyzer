@@ -58,10 +58,16 @@ media-analyzer = { workspace = true }
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "--cov=media_analyzer --cov-report=term-missing"
+addopts = "--cov=media_analyzer_cli --cov-report=term-missing"
 markers = [
     "integration: marks tests as integration tests requiring API keys",
     "slow: marks tests as slow running",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pydub.utils",
+    "ignore::DeprecationWarning:pydantic._internal._config",
+    "ignore::UserWarning:pydantic.main",
+    "ignore::pytest_cov.plugin.CovReportWarning",
 ]
 
 [tool.black]

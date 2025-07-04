@@ -1,13 +1,20 @@
-import base64
 import asyncio
+import base64
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
+
 import litellm
-from PIL import Image
 from loguru import logger
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from PIL import Image
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from ..config import Config
+
 
 class LiteLLMModel:
     """Unified interface for multiple LLM providers using LiteLLM."""
@@ -18,7 +25,17 @@ class LiteLLMModel:
     def _encode_image(self, image_path: Path) -> str:
         """Encode image to base64 string."""
         with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
+            return base64.b64encode(image_file.read()).decode("utf-8")
+    
+    def _encode_audio(self, audio_path: Path) -> str:
+        """Encode audio to base64 string."""
+        with open(audio_path, "rb") as audio_file:
+            return base64.b64encode(audio_file.read()).decode("utf-8")
+    
+    def _encode_video(self, video_path: Path) -> str:
+        """Encode video to base64 string."""
+        with open(video_path, "rb") as video_file:
+            return base64.b64encode(video_file.read()).decode("utf-8")
     
     def _validate_image(self, image_path: Path) -> bool:
         """Validate image file."""
@@ -43,6 +60,58 @@ class LiteLLMModel:
             logger.error(f"Image validation failed for {image_path}: {e}")
             return False
     
+    def _validate_audio(self, audio_path: Path) -> bool:
+        """Validate audio file for Gemini processing."""
+        try:
+            # Check file exists
+            if not audio_path.exists():
+                logger.error(f"Audio file does not exist: {audio_path}")
+                return False
+            
+            # Check file size
+            file_size_mb = audio_path.stat().st_size / (1024 * 1024)
+            max_audio_size_mb = getattr(self.config, "max_audio_size_mb", 100)  # 100MB default
+            if file_size_mb > max_audio_size_mb:
+                logger.warning(f"Audio {audio_path} exceeds max size ({file_size_mb:.1f}MB)")
+                return False
+            
+            # Check format - supported by Gemini
+            supported_audio_formats = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac"}
+            if audio_path.suffix.lower() not in supported_audio_formats:
+                logger.warning(f"Unsupported audio format: {audio_path.suffix}")
+                return False
+            
+            return True
+        except Exception as e:
+            logger.error(f"Audio validation failed for {audio_path}: {e}")
+            return False
+    
+    def _validate_video(self, video_path: Path) -> bool:
+        """Validate video file for Gemini processing."""
+        try:
+            # Check file exists
+            if not video_path.exists():
+                logger.error(f"Video file does not exist: {video_path}")
+                return False
+            
+            # Check file size
+            file_size_mb = video_path.stat().st_size / (1024 * 1024)
+            max_video_size_mb = getattr(self.config, "max_video_size_mb", 2048)  # 2GB default for Gemini 2.0
+            if file_size_mb > max_video_size_mb:
+                logger.warning(f"Video {video_path} exceeds max size ({file_size_mb:.1f}MB)")
+                return False
+            
+            # Check format - supported by Gemini
+            supported_video_formats = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm", ".m4v"}
+            if video_path.suffix.lower() not in supported_video_formats:
+                logger.warning(f"Unsupported video format: {video_path.suffix}")
+                return False
+            
+            return True
+        except Exception as e:
+            logger.error(f"Video validation failed for {video_path}: {e}")
+            return False
+    
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
@@ -64,7 +133,7 @@ class LiteLLMModel:
         image_path: Path, 
         prompt: str,
         word_count: int = 100
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Analyze a single image using the specified model."""
         
         if not self._validate_image(image_path):
@@ -74,11 +143,11 @@ class LiteLLMModel:
         api_key = self.config.get_api_key(model)
         if api_key:
             # Set API key for litellm
-            if model.startswith('gpt-') or model.startswith('openai/'):
+            if model.startswith("gpt-") or model.startswith("openai/"):
                 litellm.openai_key = api_key
-            elif model.startswith('claude-') or model.startswith('anthropic/'):
+            elif model.startswith("claude-") or model.startswith("anthropic/"):
                 litellm.anthropic_key = api_key
-            elif model.startswith('gemini') or model.startswith('google/'):
+            elif model.startswith("gemini") or model.startswith("google/"):
                 litellm.google_key = api_key
         
         # Encode image
@@ -103,151 +172,223 @@ class LiteLLMModel:
             }
         ]
         
-        try:
-            # Call LiteLLM with retry logic
-            response = await self._call_litellm_with_retry(
-                model=model,
-                messages=messages,
-                timeout=self.config.timeout_seconds
-            )
-            
-            analysis = response.choices[0].message.content
-            
-            return {
-                "image_path": str(image_path),
-                "model": model,
-                "prompt": prompt,
-                "word_count": word_count,
-                "analysis": analysis,
-                "success": True,
-                "error": None
-            }
-            
-        except Exception as e:
-            logger.error(f"Analysis failed for {image_path} with model {model}: {e}")
-            return {
-                "image_path": str(image_path),
-                "model": model,
-                "prompt": prompt,
-                "word_count": word_count,
-                "analysis": None,
-                "success": False,
-                "error": str(e)
-            }
-    
-    def _validate_audio(self, audio_path: Path) -> bool:
-        """Validate audio file for transcription."""
-        try:
-            # Check file exists
-            if not audio_path.exists():
-                logger.error(f"Audio file does not exist: {audio_path}")
-                return False
-            
-            # Check file size
-            file_size_mb = audio_path.stat().st_size / (1024 * 1024)
-            max_audio_size_mb = getattr(self.config, 'max_audio_size_mb', 100)  # 100MB default
-            if file_size_mb > max_audio_size_mb:
-                logger.warning(f"Audio {audio_path} exceeds max size ({file_size_mb:.1f}MB)")
-                return False
-            
-            # Check format - supported by Whisper
-            supported_audio_formats = {'.mp3', '.wav', '.m4a', '.flac', '.ogg'}
-            if audio_path.suffix.lower() not in supported_audio_formats:
-                logger.warning(f"Unsupported audio format: {audio_path.suffix}")
-                return False
-            
-            return True
-        except Exception as e:
-            logger.error(f"Audio validation failed for {audio_path}: {e}")
-            return False
-    
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=4, max=10),
-        retry=retry_if_exception_type((Exception,)),
-        reraise=True
-    )
-    async def _call_litellm_transcription_with_retry(self, model: str, audio_file, timeout: int) -> Any:
-        """Call LiteLLM transcription with retry logic."""
-        return await asyncio.to_thread(
-            litellm.transcription,
+        # Call LiteLLM with retry logic - raise exceptions immediately
+        response = await self._call_litellm_with_retry(
             model=model,
-            file=audio_file,
-            timeout=timeout
+            messages=messages,
+            timeout=self.config.timeout_seconds
         )
+        
+        analysis = response.choices[0].message.content
+        
+        return {
+            "image_path": str(image_path),
+            "model": model,
+            "prompt": prompt,
+            "word_count": word_count,
+            "analysis": analysis,
+            "success": True,
+            "error": None
+        }
     
-    async def transcribe_audio(
+    async def analyze_audio_directly(
         self, 
         model: str, 
-        audio_path: Path
-    ) -> Dict[str, Any]:
-        """Transcribe audio file using Whisper models."""
+        audio_path: Path, 
+        mode: str,
+        prompt: str | None = None,
+        word_count: int = 100
+    ) -> dict[str, Any]:
+        """Analyze audio directly using Gemini's multimodal capabilities."""
+        
+        # Only support Gemini models for audio analysis
+        if not model.startswith("gemini"):
+            raise ValueError(f"Audio analysis only supports Gemini models. Received: {model}")
         
         if not self._validate_audio(audio_path):
             raise ValueError(f"Invalid audio file: {audio_path}")
         
-        # Get API key for the model
+        # Get API key for Gemini
         api_key = self.config.get_api_key(model)
         if api_key:
-            # Set API key for litellm - prioritize Azure OpenAI, then OpenAI
-            if hasattr(self.config, 'azure_openai_endpoint') and self.config.azure_openai_endpoint:
-                litellm.azure_key = api_key
-                litellm.azure_base = self.config.azure_openai_endpoint
-            else:
-                litellm.openai_key = api_key
+            litellm.google_key = api_key
         
-        try:
-            # Open audio file for transcription
-            with open(audio_path, "rb") as audio_file:
-                # Call LiteLLM transcription with retry logic
-                response = await self._call_litellm_transcription_with_retry(
-                    model=model,
-                    audio_file=audio_file,
-                    timeout=self.config.timeout_seconds
-                )
-            
-            transcript = response.text if hasattr(response, 'text') else response['text']
-            
-            return {
-                "audio_path": str(audio_path),
-                "model": model,
-                "transcript": transcript,
-                "success": True,
-                "error": None
+        # Encode audio to base64
+        audio_base64 = self._encode_audio(audio_path)
+        
+        # Determine MIME type based on file extension
+        mime_types = {
+            ".mp3": "audio/mpeg",
+            ".wav": "audio/wav", 
+            ".m4a": "audio/mp4",
+            ".flac": "audio/flac",
+            ".ogg": "audio/ogg",
+            ".aac": "audio/aac"
+        }
+        mime_type = mime_types.get(audio_path.suffix.lower(), "audio/mpeg")
+        
+        # Prepare prompt based on mode
+        if mode == "transcript":
+            full_prompt = "Please transcribe this audio file and return only the transcript text."
+        elif mode == "description":
+            if prompt:
+                full_prompt = f"{prompt}\n\nPlease analyze this audio content. Provide approximately {word_count} words in your analysis."
+            else:
+                full_prompt = f"Please analyze and describe the content of this audio file. Provide approximately {word_count} words in your analysis."
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Use 'transcript' or 'description'")
+        
+        # Prepare messages for Gemini with audio content
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": full_prompt},
+                    {
+                        "type": "file",
+                        "file": {
+                            "file_data": f"data:{mime_type};base64,{audio_base64}"
+                        }
+                    }
+                ]
             }
-            
-        except Exception as e:
-            logger.error(f"Transcription failed for {audio_path} with model {model}: {e}")
-            return {
-                "audio_path": str(audio_path),
-                "model": model,
-                "transcript": None,
-                "success": False,
-                "error": str(e)
+        ]
+        
+        # Call Gemini with audio content - raise exceptions immediately
+        response = await self._call_litellm_with_retry(
+            model=model,
+            messages=messages,
+            timeout=self.config.timeout_seconds
+        )
+        
+        content = response.choices[0].message.content
+        
+        result = {
+            "audio_path": str(audio_path),
+            "model": model,
+            "mode": mode,
+            "success": True,
+            "error": None
+        }
+        
+        if mode == "transcript":
+            result["transcript"] = content
+        elif mode == "description":
+            result["transcript"] = content  # Gemini provides both transcript and analysis
+            result["analysis"] = content
+            result["prompt"] = prompt
+            result["word_count"] = word_count
+        
+        return result
+    
+    async def analyze_video(
+        self, 
+        model: str, 
+        video_path: Path, 
+        mode: str,
+        prompt: str | None = None,
+        word_count: int = 100
+    ) -> dict[str, Any]:
+        """Analyze video directly using Gemini's multimodal capabilities."""
+        
+        # Only support Gemini models for video analysis
+        if not model.startswith("gemini"):
+            raise ValueError(f"Video analysis only supports Gemini models. Received: {model}")
+        
+        if not self._validate_video(video_path):
+            raise ValueError(f"Invalid video file: {video_path}")
+        
+        # Get API key for Gemini
+        api_key = self.config.get_api_key(model)
+        if api_key:
+            litellm.google_key = api_key
+        
+        # Encode video to base64
+        video_base64 = self._encode_video(video_path)
+        
+        # Determine MIME type based on file extension
+        mime_types = {
+            ".mp4": "video/mp4",
+            ".avi": "video/x-msvideo",
+            ".mov": "video/quicktime", 
+            ".mkv": "video/x-matroska",
+            ".wmv": "video/x-ms-wmv",
+            ".flv": "video/x-flv",
+            ".webm": "video/webm",
+            ".m4v": "video/mp4"
+        }
+        mime_type = mime_types.get(video_path.suffix.lower(), "video/mp4")
+        
+        # Only support description mode for video analysis
+        if mode != "description":
+            raise ValueError(f"Invalid mode: {mode}. Video analysis only supports 'description' mode")
+        
+        # Prepare prompt for description mode
+        if prompt:
+            full_prompt = f"{prompt}\n\nPlease analyze this video content including both visual and audio elements. Provide approximately {word_count} words in your analysis."
+        else:
+            full_prompt = f"Please analyze and describe the content of this video file, including both visual and audio elements. Provide approximately {word_count} words in your analysis."
+        
+        # Prepare messages for Gemini with video content
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": full_prompt},
+                    {
+                        "type": "file",
+                        "file": {
+                            "file_data": f"data:{mime_type};base64,{video_base64}"
+                        }
+                    }
+                ]
             }
+        ]
+        
+        # Call Gemini with video content - raise exceptions immediately
+        response = await self._call_litellm_with_retry(
+            model=model,
+            messages=messages,
+            timeout=self.config.timeout_seconds
+        )
+        
+        content = response.choices[0].message.content
+        
+        result = {
+            "video_path": str(video_path),
+            "model": model,
+            "mode": mode,
+            "analysis": content,
+            "prompt": prompt,
+            "word_count": word_count,
+            "success": True,
+            "error": None
+        }
+        
+        return result
     
     async def analyze_transcript(
         self, 
         model: str, 
         transcript: str, 
-        prompt: Optional[str] = None,
+        prompt: str | None = None,
         word_count: int = 100
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Analyze transcript text using specified LLM model."""
         
         # Get API key for the model
         api_key = self.config.get_api_key(model)
         if api_key:
             # Set API key for litellm
-            if model.startswith('gpt-') or model.startswith('openai/'):
-                if hasattr(self.config, 'azure_openai_endpoint') and self.config.azure_openai_endpoint:
-                    litellm.azure_key = api_key
+            if model.startswith("azure/"):
+                litellm.azure_key = api_key
+                if hasattr(self.config, "azure_openai_endpoint") and self.config.azure_openai_endpoint:
                     litellm.azure_base = self.config.azure_openai_endpoint
-                else:
-                    litellm.openai_key = api_key
-            elif model.startswith('claude-') or model.startswith('anthropic/'):
+            elif model.startswith("gpt-") or model.startswith("openai/"):
+                litellm.openai_key = api_key
+            elif model.startswith("claude-") or model.startswith("anthropic/"):
                 litellm.anthropic_key = api_key
-            elif model.startswith('gemini') or model.startswith('google/'):
+            elif model.startswith("gemini") or model.startswith("google/"):
                 litellm.google_key = api_key
         
         # Prepare the analysis prompt
@@ -264,34 +405,21 @@ class LiteLLMModel:
             }
         ]
         
-        try:
-            # Call LiteLLM with retry logic
-            response = await self._call_litellm_with_retry(
-                model=model,
-                messages=messages,
-                timeout=self.config.timeout_seconds
-            )
-            
-            analysis = response.choices[0].message.content
-            
-            return {
-                "transcript": transcript,
-                "model": model,
-                "prompt": prompt,
-                "word_count": word_count,
-                "analysis": analysis,
-                "success": True,
-                "error": None
-            }
-            
-        except Exception as e:
-            logger.error(f"Transcript analysis failed with model {model}: {e}")
-            return {
-                "transcript": transcript,
-                "model": model,
-                "prompt": prompt,
-                "word_count": word_count,
-                "analysis": None,
-                "success": False,
-                "error": str(e)
-            }
+        # Call LiteLLM with retry logic - raise exceptions immediately
+        response = await self._call_litellm_with_retry(
+            model=model,
+            messages=messages,
+            timeout=self.config.timeout_seconds
+        )
+        
+        analysis = response.choices[0].message.content
+        
+        return {
+            "transcript": transcript,
+            "model": model,
+            "prompt": prompt,
+            "word_count": word_count,
+            "analysis": analysis,
+            "success": True,
+            "error": None
+        }

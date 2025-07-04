@@ -12,7 +12,7 @@ from pathlib import Path
 from PIL import Image
 
 from media_analyzer_cli.image_analyzer import ImageAnalyzer
-from media_analyzer.config import Config
+from media_analyzer_cli.config import Config
 
 
 async def create_sample_image(
@@ -129,7 +129,7 @@ async def example_different_output_formats():
         analyzer = ImageAnalyzer(config)
 
         # Generate different formats
-        formats = ["json", "markdown", "csv"]
+        formats = ["json", "markdown", "text"]
 
         for format_type in formats:
             result = await analyzer.analyze(
@@ -137,10 +137,10 @@ async def example_different_output_formats():
                 path=sample_path,
                 word_count=80,
                 output_format=format_type,
-                output_file=f"result.{format_type}",
+                output_file=f"result.{format_type if format_type != 'text' else 'txt'}",
             )
 
-            print(f"\n{format_type.upper()} format saved to result.{format_type}")
+            print(f"\n{format_type.upper()} format saved to result.{format_type if format_type != 'text' else 'txt'}")
             if format_type == "json":
                 print("Preview:")
                 print(result[:200] + "..." if len(result) > 200 else result)

@@ -1,14 +1,15 @@
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
 import pytest
 
 from media_analyzer_cli.config import Config
 from media_analyzer_cli.image_analyzer import ImageAnalyzer
+
 from .test_utils import (
-    get_test_image_path,
-    get_primary_image_model,
     FileManager,
-    cleanup_temp_file,
+    get_primary_image_model,
+    get_test_image_path,
 )
 
 

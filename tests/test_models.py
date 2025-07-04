@@ -1,17 +1,20 @@
-import pytest
-from pathlib import Path
-from PIL import Image
 import tempfile
-import io
+from pathlib import Path
 
-from media_analyzer_cli.models.litellm_model import LiteLLMModel
+import pytest
+
 from media_analyzer_cli.config import Config
+from media_analyzer_cli.models.litellm_model import LiteLLMModel
+
 from .test_utils import (
-    get_test_image_path,
-    get_primary_image_model,
-    get_primary_audio_model,
     FileManager,
     cleanup_temp_file,
+    get_primary_image_model,
+    get_primary_video_model,
+    get_test_audio_path,
+    get_test_image_path,
+    get_test_video_path,
+    require_api_credentials,
 )
 
 
@@ -122,7 +125,6 @@ class TestLiteLLMModel:
             assert result["error"] is None
         else:
             assert "error" in result
-            print(f"Image analysis failed: {result['error']}")
 
     @pytest.mark.asyncio
     async def test_analyze_image_validation_failure(self):
@@ -139,52 +141,160 @@ class TestLiteLLMModel:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    async def test_transcribe_audio_success(self):
-        """Test successful audio transcription with real API call."""
+    async def test_analyze_audio_directly_success(self):
+        """Test successful audio analysis with real API call using Gemini."""
 
-        model_name = get_primary_audio_model()
+        # Use Gemini model for direct audio analysis
+        model_name = "gemini/gemini-2.5-flash"
+        require_api_credentials(model_name)
 
-        with FileManager() as manager:
-            # Create test audio file
-            test_audio_path = manager.create_test_audio(duration=2.0, format="wav")
+        # Use the real test audio file
+        test_audio_path = get_test_audio_path()
 
-            result = await self.model.transcribe_audio(
-                model=model_name, audio_path=test_audio_path
-            )
+        result = await self.model.analyze_audio_directly(
+            model=model_name, 
+            audio_path=test_audio_path,
+            mode="transcript"
+        )
 
-            # Check result structure
-            assert "success" in result
-            assert "audio_path" in result
-            assert "model" in result
+        # Check result structure
+        assert "success" in result
+        assert "audio_path" in result
+        assert "model" in result
+        assert "mode" in result
 
-            # For synthetic audio, transcription might not be meaningful,
-            # but we're testing the pipeline works
-            if result["success"]:
-                assert "transcript" in result
-                assert result["error"] is None
-            else:
-                assert "error" in result
-                print(f"Audio transcription failed: {result['error']}")
+        # For real audio, transcription should work
+        if result["success"]:
+            assert "transcript" in result
+            assert result["error"] is None
+        else:
+            assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_transcribe_audio_validation_failure(self):
-        """Test audio transcription with validation failure."""
+    async def test_analyze_audio_directly_validation_failure(self):
+        """Test audio analysis with validation failure."""
         # Test with non-existent file
         nonexistent_path = Path("/nonexistent/audio.wav")
 
         with pytest.raises(ValueError, match="Invalid audio file"):
-            await self.model.transcribe_audio(
-                model="whisper-1", audio_path=nonexistent_path
+            await self.model.analyze_audio_directly(
+                model="gemini/gemini-2.5-flash", 
+                audio_path=nonexistent_path,
+                mode="transcript"
             )
 
     def test_validate_audio_success(self):
         """Test successful audio validation."""
-        with FileManager() as manager:
-            test_audio_path = manager.create_test_audio()
-            result = self.model._validate_audio(test_audio_path)
-            assert result is True
+        test_audio_path = get_test_audio_path()
+        result = self.model._validate_audio(test_audio_path)
+        assert result is True
 
     def test_validate_audio_nonexistent(self):
         """Test audio validation fails for non-existent files."""
         result = self.model._validate_audio(Path("/nonexistent/audio.wav"))
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_litellm_model_video_analysis_with_real_api(self):
+        """Test video analysis with real Gemini API."""
+        model_name = get_primary_video_model()
+        require_api_credentials(model_name)
+
+        # Use the real test video file if available, or skip
+        test_video_path = get_test_video_path()
+        if not test_video_path.exists():
+            pytest.skip("No test video file available")
+
+        result = await self.model.analyze_video(
+            model=model_name,
+            video_path=test_video_path,
+            mode="description",
+            word_count=50
+        )
+
+        # Check result structure
+        assert "success" in result
+        assert "video_path" in result
+        assert "model" in result
+        assert "mode" in result
+        assert "analysis" in result
+        assert "word_count" in result
+
+        # For real video with valid Gemini API, analysis should work
+        if result["success"]:
+            assert result["analysis"] is not None
+            assert result["error"] is None
+            assert result["mode"] == "description"
+        else:
+            assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_litellm_model_video_validation_fails_fast(self):
+        """Test video analysis validation fails fast."""
+        model_name = get_primary_video_model()
+        require_api_credentials(model_name)
+
+        # Test with non-existent file
+        nonexistent_path = Path("/nonexistent/video.mp4")
+
+        with pytest.raises(ValueError, match="Invalid video file"):
+            await self.model.analyze_video(
+                model=model_name,
+                video_path=nonexistent_path,
+                mode="description"
+            )
+
+    @pytest.mark.asyncio
+    async def test_litellm_model_video_mode_validation(self):
+        """Test video analysis mode validation."""
+        model_name = get_primary_video_model()
+        require_api_credentials(model_name)
+
+        # Create a dummy video file for testing
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+            tmp.write(b"fake video content")
+            fake_video_path = Path(tmp.name)
+
+        try:
+            # Test invalid mode
+            with pytest.raises(ValueError, match="Video analysis only supports 'description' mode"):
+                await self.model.analyze_video(
+                    model=model_name,
+                    video_path=fake_video_path,
+                    mode="transcript"
+                )
+
+            with pytest.raises(ValueError, match="Video analysis only supports 'description' mode"):
+                await self.model.analyze_video(
+                    model=model_name,
+                    video_path=fake_video_path,
+                    mode="summary"
+                )
+        finally:
+            cleanup_temp_file(fake_video_path)
+
+    @pytest.mark.asyncio
+    async def test_litellm_model_non_gemini_model_fails_fast(self):
+        """Test video analysis fails fast for non-Gemini models."""
+        # Create a dummy video file for testing
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+            tmp.write(b"fake video content")
+            fake_video_path = Path(tmp.name)
+
+        try:
+            # Test with non-Gemini model
+            with pytest.raises(ValueError, match="Video analysis only supports Gemini models"):
+                await self.model.analyze_video(
+                    model="gpt-4o-mini",
+                    video_path=fake_video_path,
+                    mode="description"
+                )
+
+            with pytest.raises(ValueError, match="Video analysis only supports Gemini models"):
+                await self.model.analyze_video(
+                    model="claude-3-sonnet-20240229",
+                    video_path=fake_video_path,
+                    mode="description"
+                )
+        finally:
+            cleanup_temp_file(fake_video_path)

@@ -2,18 +2,19 @@
 
 import asyncio
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any
+
 from loguru import logger
 from tqdm.asyncio import tqdm
 
 from .config import Config
 from .models.litellm_model import LiteLLMModel
 from .utils.audio import (
-    get_media_files, 
-    prepare_audio_for_transcription, 
     cleanup_temp_audio,
     get_audio_info,
-    validate_audio_file
+    get_media_files,
+    prepare_audio_for_transcription,
+    validate_audio_file,
 )
 from .utils.output import OutputFormatter
 from .utils.prompts import get_default_audio_prompt
@@ -33,22 +34,16 @@ class AudioAnalyzer:
         audio_path: Path,
         mode: str,
         word_count: int = 100,
-        prompt: Optional[str] = None,
+        prompt: str | None = None,
         verbose: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Analyze a single audio file."""
         
         logger.info(f"Starting audio analysis: {audio_path}")
         
         # Validate mode early to avoid unnecessary processing
         if mode not in ["transcript", "description"]:
-            return {
-                "audio_path": str(audio_path),
-                "model": model,
-                "mode": mode,
-                "success": False,
-                "error": f"Invalid mode: {mode}. Use 'transcript' or 'description'"
-            }
+            raise ValueError(f"Invalid mode: {mode}. Use 'transcript' or 'description'")
         
         # Prepare audio for transcription (extract from video if needed)
         prepared_audio_path, is_temp = prepare_audio_for_transcription(audio_path)
@@ -56,94 +51,41 @@ class AudioAnalyzer:
         try:
             # Validate the prepared audio file
             if not validate_audio_file(prepared_audio_path):
-                return {
-                    "audio_path": str(audio_path),
-                    "model": model,
-                    "mode": mode,
-                    "success": False,
-                    "error": "Audio file validation failed"
-                }
+                raise ValueError("Audio file validation failed")
             
             # Get audio information
             audio_info = get_audio_info(prepared_audio_path)
             
-            # Step 1: Always transcribe the audio first
-            logger.info(f"Transcribing audio with model: {model}")
-            transcription_result = await self.model.transcribe_audio(
-                model="whisper-1",  # Use Whisper for transcription
-                audio_path=prepared_audio_path
+            # Only support Gemini models for audio analysis
+            if not model.startswith("gemini"):
+                raise ValueError(
+                    f"Audio analysis only supports Gemini models. Received: {model}"
+                )
+            
+            # Use Gemini's direct audio analysis
+            logger.info(f"Analyzing audio directly with Gemini model: {model}")
+            
+            # Use custom prompt or default for description mode
+            analysis_prompt = prompt if mode == "description" else None
+            if mode == "description" and not analysis_prompt:
+                analysis_prompt = get_default_audio_prompt()
+            
+            result = await self.model.analyze_audio_directly(
+                model=model,
+                audio_path=prepared_audio_path,
+                mode=mode,
+                prompt=analysis_prompt,
+                word_count=word_count
             )
             
-            if not transcription_result["success"]:
-                return {
-                    "audio_path": str(audio_path),
-                    "model": model,
-                    "mode": mode,
-                    "success": False,
-                    "error": f"Transcription failed: {transcription_result['error']}"
-                }
+            if not result["success"]:
+                raise RuntimeError(result["error"])
             
-            transcript = transcription_result["transcript"]
+            # Override audio_path with original file path (user submitted path)
+            result["audio_path"] = str(audio_path)
             
-            # Step 2: Handle different modes
-            if mode == "transcript":
-                # For transcript mode, return the raw transcript
-                result = {
-                    "audio_path": str(audio_path),
-                    "model": "whisper-1",
-                    "mode": mode,
-                    "transcript": transcript,
-                    "audio_info": audio_info,
-                    "success": True,
-                    "error": None
-                }
-                
-            elif mode == "description":
-                # For description mode, analyze the transcript with the specified model
-                logger.info(f"Analyzing transcript with model: {model}")
-                
-                # Use custom prompt or default
-                analysis_prompt = prompt or get_default_audio_prompt()
-                
-                analysis_result = await self.model.analyze_transcript(
-                    model=model,
-                    transcript=transcript,
-                    prompt=analysis_prompt,
-                    word_count=word_count
-                )
-                
-                if not analysis_result["success"]:
-                    return {
-                        "audio_path": str(audio_path),
-                        "model": model,
-                        "mode": mode,
-                        "transcript": transcript,
-                        "success": False,
-                        "error": f"Analysis failed: {analysis_result['error']}"
-                    }
-                
-                result = {
-                    "audio_path": str(audio_path),
-                    "transcription_model": "whisper-1",
-                    "analysis_model": model,
-                    "mode": mode,
-                    "transcript": transcript,
-                    "analysis": analysis_result["analysis"],
-                    "prompt": analysis_prompt,
-                    "word_count": word_count,
-                    "audio_info": audio_info,
-                    "success": True,
-                    "error": None
-                }
-            
-            else:
-                return {
-                    "audio_path": str(audio_path),
-                    "model": model,
-                    "mode": mode,
-                    "success": False,
-                    "error": f"Invalid mode: {mode}. Use 'transcript' or 'description'"
-                }
+            # Add audio info to the result
+            result["audio_info"] = audio_info
             
             # Add verbose information if requested
             if verbose:
@@ -156,16 +98,6 @@ class AudioAnalyzer:
             
             logger.info(f"Audio analysis completed successfully: {audio_path}")
             return result
-            
-        except Exception as e:
-            logger.error(f"Unexpected error analyzing {audio_path}: {e}")
-            return {
-                "audio_path": str(audio_path),
-                "model": model,
-                "mode": mode,
-                "success": False,
-                "error": str(e)
-            }
         
         finally:
             # Clean up temporary audio file if created
@@ -175,13 +107,13 @@ class AudioAnalyzer:
     async def analyze_batch(
         self,
         model: str,
-        audio_files: List[Path],
+        audio_files: list[Path],
         mode: str,
         word_count: int = 100,
-        prompt: Optional[str] = None,
+        prompt: str | None = None,
         concurrency: int = 3,
         verbose: bool = False
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Analyze multiple audio files with concurrency control."""
         
         logger.info(f"Starting batch analysis of {len(audio_files)} audio files")
@@ -189,7 +121,7 @@ class AudioAnalyzer:
         # Create semaphore to limit concurrency
         semaphore = asyncio.Semaphore(min(concurrency, self.config.max_concurrency))
         
-        async def analyze_with_semaphore(audio_path: Path) -> Dict[str, Any]:
+        async def analyze_with_semaphore(audio_path: Path) -> dict[str, Any]:
             async with semaphore:
                 return await self.analyze_single_audio(
                     model=model,
@@ -204,7 +136,8 @@ class AudioAnalyzer:
         tasks = [analyze_with_semaphore(audio_path) for audio_path in audio_files]
         results = await tqdm.gather(*tasks, desc="Analyzing audio files")
         
-        logger.info(f"Batch analysis completed. Success: {sum(1 for r in results if r['success'])}/{len(results)}")
+        success_count = sum(1 for r in results if r["success"])
+        logger.info(f"Batch analysis completed. Success: {success_count}/{len(results)}")
         return results
 
     async def analyze(
@@ -213,9 +146,9 @@ class AudioAnalyzer:
         path: Path,
         mode: str,
         word_count: int = 100,
-        prompt: Optional[str] = None,
+        prompt: str | None = None,
         output_format: str = "json",
-        output_file: Optional[str] = None,
+        output_file: str | None = None,
         recursive: bool = False,
         concurrency: int = 3,
         verbose: bool = False
@@ -267,7 +200,7 @@ class AudioAnalyzer:
             output_path = Path(output_file)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(formatted_output)
                 
             logger.info(f"Results saved to: {output_path}")

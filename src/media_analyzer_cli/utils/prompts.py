@@ -1,4 +1,4 @@
-from typing import Optional
+
 
 class PromptManager:
     """Manages analysis prompts for different use cases."""
@@ -17,7 +17,7 @@ class PromptManager:
     }
     
     @classmethod
-    def get_prompt(cls, prompt_type: Optional[str] = None, custom_prompt: Optional[str] = None) -> str:
+    def get_prompt(cls, prompt_type: str | None = None, custom_prompt: str | None = None) -> str:
         """Get a prompt based on type or custom input."""
         
         if custom_prompt:
@@ -44,7 +44,7 @@ def get_default_audio_prompt() -> str:
     return "Analyze and describe the content of this audio transcript. Include key topics, themes, tone, and any notable information or insights from the spoken content."
 
 
-def get_audio_prompt(prompt_type: Optional[str] = None) -> str:
+def get_audio_prompt(prompt_type: str | None = None) -> str:
     """Get audio-specific prompts based on type."""
     
     audio_prompts = {

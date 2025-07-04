@@ -1,23 +1,27 @@
-import pytest
-import asyncio
 import tempfile
-import os
 from pathlib import Path
-from pydub import AudioSegment
+
 import numpy as np
+import pytest
+from pydub import AudioSegment
 
 from media_analyzer_cli.audio_analyzer import AudioAnalyzer
 from media_analyzer_cli.config import Config
 from media_analyzer_cli.utils.audio import (
-    is_audio_file,
-    is_video_file,
-    is_media_file,
-    get_audio_info,
-    validate_audio_file,
-    prepare_audio_for_transcription,
     cleanup_temp_audio,
+    get_audio_info,
+    is_audio_file,
+    is_media_file,
+    is_video_file,
+    prepare_audio_for_transcription,
+    validate_audio_file,
 )
-from .test_utils import get_test_audio_path, get_test_video_path, get_test_data_path
+
+from .test_utils import (
+    get_test_audio_path,
+    get_test_video_path,
+    require_api_credentials,
+)
 
 
 class TestAudioUtils:
@@ -51,7 +55,7 @@ class TestAudioUtils:
         assert not is_media_file(Path("test.txt"))
         assert not is_media_file(Path("test.jpg"))
 
-    def test_create_test_audio_file(self):
+    def create_test_audio_file(self):
         """Create a test audio file for testing purposes."""
         # Generate 1 second of sine wave audio (440 Hz)
         sample_rate = 44100
@@ -76,6 +80,16 @@ class TestAudioUtils:
             temp_path = Path(tmp_file.name)
             assert temp_path.exists()
             return temp_path
+    
+    def test_create_test_audio_file(self):
+        """Test creating a test audio file."""
+        # Create and immediately clean up test file
+        temp_path = self.create_test_audio_file()
+        try:
+            assert temp_path.exists()
+        finally:
+            # Clean up the temporary file
+            temp_path.unlink()
 
     def test_get_audio_info(self):
         """Test getting audio file information."""
@@ -101,7 +115,7 @@ class TestAudioUtils:
             assert audio_info["format"] in ["mp3", "wav", "m4a", "flac", "ogg"]
         else:
             # Fallback to synthetic audio file
-            test_audio_path = self.test_create_test_audio_file()
+            test_audio_path = self.create_test_audio_file()
             try:
                 audio_info = get_audio_info(test_audio_path)
                 assert "duration_seconds" in audio_info
@@ -120,7 +134,7 @@ class TestAudioUtils:
             assert validate_audio_file(test_audio_path) == True
         else:
             # Fallback to synthetic audio file
-            test_audio_path = self.test_create_test_audio_file()
+            test_audio_path = self.create_test_audio_file()
             try:
                 assert validate_audio_file(test_audio_path) == True
             finally:
@@ -142,7 +156,7 @@ class TestAudioUtils:
             assert is_temp == False
         else:
             # Fallback to synthetic audio file
-            test_audio_path = self.test_create_test_audio_file()
+            test_audio_path = self.create_test_audio_file()
             try:
                 prepared_path, is_temp = prepare_audio_for_transcription(
                     test_audio_path
@@ -174,7 +188,7 @@ class TestAudioUtils:
     def test_cleanup_temp_audio(self):
         """Test temporary audio file cleanup."""
         # Create test audio file
-        test_audio_path = self.test_create_test_audio_file()
+        test_audio_path = self.create_test_audio_file()
 
         # Verify file exists
         assert test_audio_path.exists()
@@ -195,10 +209,10 @@ class TestAudioAnalyzer:
 
     def setup_method(self):
         """Set up test fixtures."""
+        # Require API credentials for Gemini models
+        require_api_credentials("gemini/gemini-2.5-flash")
+
         self.config = Config.load()
-        # Validate API keys are available before running tests
-        self.config.validate_api_keys("whisper-1")  # Check for audio transcription
-        self.config.validate_api_keys("gpt-4o-mini")  # Check for text analysis
         self.analyzer = AudioAnalyzer(self.config)
 
         # Use real test audio file if available, otherwise create synthetic one
@@ -254,7 +268,7 @@ class TestAudioAnalyzer:
 
         try:
             result = await self.analyzer.analyze_single_audio(
-                model="whisper-1",
+                model="gemini/gemini-2.5-flash",
                 audio_path=self.test_audio_path,
                 mode="transcript",
                 verbose=True,
@@ -270,7 +284,7 @@ class TestAudioAnalyzer:
             # Test must succeed - fail if API call failed
             if not result["success"]:
                 pytest.fail(f"Audio transcription failed: {result.get('error', 'Unknown error')}")
-            
+
             assert "transcript" in result
             assert "audio_info" in result
 
@@ -284,7 +298,7 @@ class TestAudioAnalyzer:
 
         try:
             result = await self.analyzer.analyze_single_audio(
-                model="gpt-4o-mini",
+                model="gemini/gemini-2.5-flash",
                 audio_path=self.test_audio_path,
                 mode="description",
                 word_count=50,
@@ -301,11 +315,10 @@ class TestAudioAnalyzer:
             # Test must succeed - fail if API call failed
             if not result["success"]:
                 pytest.fail(f"Audio description analysis failed: {result.get('error', 'Unknown error')}")
-                
+
             assert "transcript" in result
             assert "analysis" in result
-            assert "transcription_model" in result
-            assert "analysis_model" in result
+            assert "model" in result
             assert "prompt" in result
             assert "word_count" in result
             assert "audio_info" in result
@@ -316,24 +329,20 @@ class TestAudioAnalyzer:
     @pytest.mark.asyncio
     async def test_analyze_invalid_mode(self):
         """Test error handling for invalid analysis mode."""
-        result = await self.analyzer.analyze_single_audio(
-            model="whisper-1", audio_path=self.test_audio_path, mode="invalid_mode"
-        )
-
-        assert result["success"] == False
-        assert "Invalid mode" in result["error"]
+        with pytest.raises(ValueError, match="Invalid mode"):
+            await self.analyzer.analyze_single_audio(
+                model="gemini/gemini-2.5-flash", audio_path=self.test_audio_path, mode="invalid_mode"
+            )
 
     @pytest.mark.asyncio
     async def test_analyze_nonexistent_file(self):
         """Test error handling for non-existent audio file."""
         nonexistent_path = Path("nonexistent_audio_file.wav")
 
-        result = await self.analyzer.analyze_single_audio(
-            model="whisper-1", audio_path=nonexistent_path, mode="transcript"
-        )
-
-        assert result["success"] == False
-        assert "error" in result
+        with pytest.raises(ValueError, match="Audio file validation failed"):
+            await self.analyzer.analyze_single_audio(
+                model="gemini/gemini-2.5-flash", audio_path=nonexistent_path, mode="transcript"
+            )
 
     def test_output_formatting_json(self):
         """Test JSON output formatting for audio results."""
@@ -341,7 +350,7 @@ class TestAudioAnalyzer:
             {
                 "audio_path": "/test/audio.wav",
                 "mode": "transcript",
-                "model": "whisper-1",
+                "model": "gemini/gemini-2.5-flash",
                 "transcript": "Test transcript",
                 "success": True,
                 "audio_info": {"duration_minutes": 1.0, "format": "wav"},
@@ -366,8 +375,8 @@ class TestAudioAnalyzer:
             {
                 "audio_path": "/test/audio.wav",
                 "mode": "description",
-                "transcription_model": "whisper-1",
-                "analysis_model": "gpt-4o-mini",
+                "transcription_model": "gemini/gemini-2.5-flash",
+                "analysis_model": "azure/gpt-4o-mini",
                 "transcript": "Test transcript",
                 "analysis": "Test analysis",
                 "success": True,
@@ -393,7 +402,7 @@ class TestAudioAnalyzer:
             {
                 "audio_path": "/test/audio.wav",
                 "mode": "transcript",
-                "model": "whisper-1",
+                "model": "gemini/gemini-2.5-flash",
                 "transcript": "Test transcript",
                 "success": True,
             }
@@ -430,7 +439,7 @@ class TestAudioAnalyzer:
 
         try:
             results = await self.analyzer.analyze_batch(
-                model="whisper-1",
+                model="gemini/gemini-2.5-flash",
                 audio_files=audio_files,
                 mode="transcript",
                 concurrency=1,  # Use low concurrency to avoid rate limits
@@ -459,7 +468,7 @@ class TestAudioAnalyzer:
         if test_audio_path.exists():
             print(f"Testing with real audio file: {test_audio_path}")
             result = await self.analyzer.analyze_single_audio(
-                model="whisper-1",
+                model="gemini/gemini-2.5-flash",
                 audio_path=test_audio_path,
                 mode="transcript",
                 verbose=True,
@@ -472,7 +481,7 @@ class TestAudioAnalyzer:
             # Test must succeed - fail if API call failed
             if not result["success"]:
                 pytest.fail(f"Real audio analysis failed: {result.get('error', 'Unknown error')}")
-                
+
             assert "transcript" in result
             assert "audio_info" in result
             print(
@@ -483,7 +492,7 @@ class TestAudioAnalyzer:
         if test_video_path.exists():
             print(f"Testing with real video file: {test_video_path}")
             result = await self.analyzer.analyze_single_audio(
-                model="whisper-1",
+                model="gemini/gemini-2.5-flash",
                 audio_path=test_video_path,
                 mode="transcript",
                 verbose=True,
@@ -496,11 +505,11 @@ class TestAudioAnalyzer:
             # Test must succeed - fail if API call failed
             if not result["success"]:
                 pytest.fail(f"Video audio analysis failed: {result.get('error', 'Unknown error')}")
-                
+
             assert "transcript" in result
-            print(
-                f"Successfully analyzed video audio: {result.get('transcript', 'No transcript')[:100]}..."
-            )
+            transcript = result.get('transcript', 'No transcript')
+            display_transcript = transcript[:100] + "..." if transcript and len(transcript) > 100 else transcript
+            print(f"Successfully analyzed video audio: {display_transcript}")
 
     def test_config_loading_with_audio_keys(self):
         """Test configuration loading with audio-specific environment variables."""
@@ -529,15 +538,17 @@ class TestAudioAnalyzer:
         config.openai_api_key = "openai_key"
         config.gemini_api_key = "gemini_key"
 
-        # Test Whisper model key selection (should prioritize Azure, then OpenAI)
-        assert config.get_api_key("whisper-1") == "azure_key"
-
-        # Test with only OpenAI key
-        config.azure_openai_key = None
-        assert config.get_api_key("whisper-1") == "openai_key"
-
-        # Test Gemini model key selection
+        # Test Gemini model key selection (should use Gemini key)
         assert config.get_api_key("gemini/gemini-2.5-flash") == "gemini_key"
+
+        # Test with only Gemini key available
+        config.azure_openai_key = None
+        config.openai_api_key = None
+        assert config.get_api_key("gemini/gemini-2.5-flash") == "gemini_key"
+
+        # Test OpenAI Whisper model uses OpenAI key when available
+        config.openai_api_key = "openai_key"  # Reset for this test
+        assert config.get_api_key("whisper-1") == "openai_key"
 
 
 # Integration test marker configuration

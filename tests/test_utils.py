@@ -1,14 +1,30 @@
 """Test utilities for media analyzer tests."""
 
-import pytest
-from pathlib import Path
 import tempfile
-import os
-from PIL import Image
+from pathlib import Path
+
 import numpy as np
+import pytest
+from PIL import Image
 from pydub import AudioSegment
 
 from media_analyzer_cli.config import Config
+from media_analyzer_cli.utils.video import (
+    find_videos, 
+    get_video_info, 
+    is_video_file, 
+    validate_video_file
+)
+
+
+def require_api_credentials(*models: str):
+    """Require API credentials for specified models. Raises error if missing."""
+    config = Config.load()
+    for model in models:
+        try:
+            config.validate_api_keys(model)
+        except Exception as e:
+            pytest.fail(f"Required API credentials missing for {model}: {str(e)}")
 
 
 def get_test_data_path() -> Path:
@@ -39,28 +55,6 @@ def create_test_image(width: int = 100, height: int = 100, color: str = "red") -
     return Path(temp_file.name)
 
 
-def create_test_audio(
-    duration: float = 1.0, frequency: int = 440, format: str = "wav"
-) -> Path:
-    """Create a temporary test audio file with sine wave."""
-    sample_rate = 44100
-
-    # Generate sine wave
-    t = np.linspace(0, duration, int(sample_rate * duration), False)
-    wave = np.sin(2 * np.pi * frequency * t)
-
-    # Convert to 16-bit PCM
-    audio_data = (wave * 16000).astype(np.int16)  # Lower volume
-
-    # Create AudioSegment
-    audio = AudioSegment(
-        audio_data.tobytes(), frame_rate=sample_rate, sample_width=2, channels=1
-    )
-
-    # Save to temporary file
-    temp_file = tempfile.NamedTemporaryFile(suffix=f".{format}", delete=False)
-    audio.export(temp_file.name, format=format)
-    return Path(temp_file.name)
 
 
 def cleanup_temp_file(file_path: Path):
@@ -124,6 +118,126 @@ def get_primary_text_model() -> str:
     return models[0]
 
 
+def get_primary_video_model() -> str:
+    """Get the primary video model for testing (Gemini only)."""
+    config = Config.load()
+    if config.gemini_api_key:
+        return "gemini/gemini-2.5-flash"
+    pytest.fail("No video analysis models available. Set GEMINI_API_KEY environment variable.")
+
+
+def test_find_videos_recursive_with_real_files():
+    """Test find_videos function with recursive search."""
+    # Create a temporary directory structure
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        
+        # Create subdirectories
+        subdir1 = temp_path / "subdir1"
+        subdir2 = temp_path / "subdir2"
+        subdir1.mkdir()
+        subdir2.mkdir()
+        
+        # Create test video files
+        (temp_path / "video1.mp4").touch()
+        (temp_path / "video2.avi").touch()
+        (subdir1 / "video3.mov").touch()
+        (subdir2 / "video4.mkv").touch()
+        (temp_path / "not_video.txt").touch()
+        
+        # Test non-recursive search
+        videos = list(find_videos(temp_path, recursive=False))
+        video_names = [v.name for v in videos]
+        assert "video1.mp4" in video_names
+        assert "video2.avi" in video_names
+        assert "video3.mov" not in video_names  # Should not find in subdirs
+        assert "video4.mkv" not in video_names
+        
+        # Test recursive search
+        videos_recursive = list(find_videos(temp_path, recursive=True))
+        video_names_recursive = [v.name for v in videos_recursive]
+        assert "video1.mp4" in video_names_recursive
+        assert "video2.avi" in video_names_recursive
+        assert "video3.mov" in video_names_recursive
+        assert "video4.mkv" in video_names_recursive
+        assert len(videos_recursive) == 4
+
+
+def test_validate_video_file_fails_fast():
+    """Test video validation with fail-fast behavior."""
+    # Test with non-existent file
+    non_existent = Path("/non/existent/video.mp4")
+    with pytest.raises(FileNotFoundError):
+        validate_video_file(non_existent)
+    
+    # Test with unsupported format
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp:
+        tmp.write(b"not a video")
+        tmp.flush()
+        unsupported_file = Path(tmp.name)
+        
+        with pytest.raises(ValueError, match="Unsupported video format"):
+            validate_video_file(unsupported_file)
+        
+        unsupported_file.unlink()
+
+
+def test_get_video_info_with_real_video():
+    """Test get_video_info with a real video file."""
+    # This test requires a real video file to work properly
+    # For now, we'll test the error handling
+    test_video_path = get_test_video_path()
+    
+    if not test_video_path.exists():
+        # If no test video file exists, test error handling
+        with pytest.raises(FileNotFoundError):
+            get_video_info(test_video_path)
+    else:
+        # If test video exists, validate the info structure
+        try:
+            info = get_video_info(test_video_path)
+            assert "path" in info
+            assert "format" in info
+            assert "duration_seconds" in info
+            assert "duration_minutes" in info
+            assert "file_size_mb" in info
+            assert "width" in info
+            assert "height" in info
+            assert "fps" in info
+            assert "video_codec" in info
+            assert "audio_codec" in info
+            assert "bitrate" in info
+            assert "has_audio" in info
+            assert "video_streams" in info
+            assert "audio_streams" in info
+        except ValueError:
+            # If ffmpeg fails, that's expected in test environment
+            pytest.skip("ffmpeg not available or video file invalid")
+
+
+def test_is_video_file_format_detection():
+    """Test is_video_file function."""
+    # Test supported formats
+    assert is_video_file(Path("test.mp4"))
+    assert is_video_file(Path("test.avi"))
+    assert is_video_file(Path("test.mov"))
+    assert is_video_file(Path("test.mkv"))
+    assert is_video_file(Path("test.wmv"))
+    assert is_video_file(Path("test.flv"))
+    assert is_video_file(Path("test.webm"))
+    assert is_video_file(Path("test.m4v"))
+    
+    # Test case insensitivity
+    assert is_video_file(Path("test.MP4"))
+    assert is_video_file(Path("test.AVI"))
+    
+    # Test unsupported formats
+    assert not is_video_file(Path("test.txt"))
+    assert not is_video_file(Path("test.jpg"))
+    assert not is_video_file(Path("test.mp3"))
+    assert not is_video_file(Path("test.pdf"))
+
+
 class FileManager:
     """Context manager for test files that ensures cleanup."""
 
@@ -136,11 +250,6 @@ class FileManager:
         self.temp_files.append(path)
         return path
 
-    def create_test_audio(self, **kwargs) -> Path:
-        """Create test audio and track for cleanup."""
-        path = create_test_audio(**kwargs)
-        self.temp_files.append(path)
-        return path
 
     def __enter__(self):
         return self

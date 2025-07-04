@@ -1,17 +1,19 @@
+from collections.abc import Generator
 from pathlib import Path
-from typing import List, Generator
-from PIL import Image
+
 from loguru import logger
+from PIL import Image
+
 
 def find_images(
     path: Path, 
     recursive: bool = False, 
-    supported_formats: List[str] = None
+    supported_formats: list[str] = None
 ) -> Generator[Path, None, None]:
     """Find all image files in the given path."""
     
     if supported_formats is None:
-        supported_formats = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp']
+        supported_formats = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp"]
     
     if path.is_file():
         if path.suffix.lower() in supported_formats:
