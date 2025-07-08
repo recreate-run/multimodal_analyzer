@@ -21,7 +21,7 @@ class Config:
     default_model: str = "gemini/gemini-2.5-flash"
     default_word_count: int = 100
     default_prompt: str = "Describe this image in detail."
-    max_concurrency: int = 5
+    max_concurrency: int = 20
     max_file_size_mb: int = 10
 
     # Supported formats

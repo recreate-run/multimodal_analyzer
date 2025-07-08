@@ -21,6 +21,7 @@ AI-powered media analysis tool using multiple LLM providers through LiteLLM. Ana
 uv build
 uv sync
 uv tool install dist/multimodal_analyzer-<version>-py3-none-any.whl
+rm -rf dist
 ```
 
 **Development Installation**

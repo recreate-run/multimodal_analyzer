@@ -11,6 +11,15 @@ from .image_analyzer import ImageAnalyzer
 from .video_analyzer import VideoAnalyzer
 
 
+def get_concurrency_help() -> str:
+    """Generate dynamic help text for concurrency option."""
+    try:
+        config = Config.load()
+        return f"Concurrent requests for batch processing (max: {config.max_concurrency})"
+    except Exception:
+        return "Concurrent requests for batch processing"
+
+
 @click.command()
 @click.option(
     "--type",
@@ -65,7 +74,7 @@ from .video_analyzer import VideoAnalyzer
 @click.option("--output-file", help="Save results to file")
 @click.option("--recursive", "-r", is_flag=True, help="Process directories recursively")
 @click.option(
-    "--concurrency", "-c", default=3, help="Concurrent requests for batch processing"
+    "--concurrency", "-c", default=10, help=get_concurrency_help()
 )
 @click.option(
     "--log-level",
@@ -141,6 +150,12 @@ def main(
 
     # Load configuration
     config = Config.load()
+
+    # Validate concurrency limit
+    if concurrency > config.max_concurrency:
+        raise click.ClickException(
+            f"Concurrency value {concurrency} exceeds maximum limit of {config.max_concurrency}"
+        )
 
     # Create appropriate analyzer
     if type_ == "image":
