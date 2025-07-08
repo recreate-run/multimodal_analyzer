@@ -1,7 +1,7 @@
 [project]
 name = "multimodal-analyzer"
-version = "0.2.0"
-description = "AI-powered media analysis tool for images and audio using multiple LLM providers"
+version = "0.2.2"
+description = "AI-powered media analysis tool for images, audio, and video using multiple LLM providers"
 readme = "README.md"
 requires-python = ">=3.12"
 classifiers = [

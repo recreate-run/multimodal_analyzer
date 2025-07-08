@@ -11,6 +11,7 @@ from .config import Config
 from .models.litellm_model import LiteLLMModel
 from .utils.output import OutputFormatter
 from .utils.video import find_videos, get_video_info, validate_video_file
+from .utils.file_discovery import validate_file_list
 
 
 class VideoAnalyzer:
@@ -190,8 +191,9 @@ class VideoAnalyzer:
     async def analyze(
         self,
         model: str,
-        path: Path,
         mode: str,
+        path: Path | None = None,
+        file_list: list[Path] | None = None,
         word_count: int = 100,
         prompt: str | None = None,
         output_format: str = "json",
@@ -200,40 +202,27 @@ class VideoAnalyzer:
         concurrency: int = 3,
         verbose: bool = False
     ) -> str:
-        """Main analysis method that handles both single files and directories."""
+        """Main analysis method that handles files, directories, and explicit file lists."""
         
         # Validate configuration
         self.config.validate()
         self.config.validate_api_keys(model)
         
-        if path.is_file():
-            # Single file analysis
-            result = await self.analyze_single_video(
-                model=model,
-                video_path=path,
-                mode=mode,
-                word_count=word_count,
-                prompt=prompt,
-                verbose=verbose
-            )
-            results = [result]
-            
-        elif path.is_dir():
-            # Directory analysis
-            video_files = list(find_videos(path, recursive=recursive))
-            
-            if not video_files:
-                raise ValueError(f"No video files found in {path}")
-            
-            logger.info(f"Found {len(video_files)} video files in {path}")
+        if file_list:
+            # File list analysis
+            video_files = validate_file_list([str(f) for f in file_list], "video")
             
             if len(video_files) == 1:
                 # Single video processing
-                results = [
-                    await self.analyze_single_video(
-                        model, video_files[0], mode, word_count, prompt, verbose
-                    )
-                ]
+                result = await self.analyze_single_video(
+                    model=model,
+                    video_path=video_files[0],
+                    mode=mode,
+                    word_count=word_count,
+                    prompt=prompt,
+                    verbose=verbose
+                )
+                results = [result]
             else:
                 # Batch processing with progress tracking
                 results = await self.analyze_batch_with_progress(
@@ -246,7 +235,50 @@ class VideoAnalyzer:
                     verbose=verbose
                 )
         else:
-            raise ValueError(f"Path does not exist: {path}")
+            if not path:
+                raise ValueError("Either path or file_list must be provided")
+            
+            if path.is_file():
+                # Single file analysis
+                result = await self.analyze_single_video(
+                    model=model,
+                    video_path=path,
+                    mode=mode,
+                    word_count=word_count,
+                    prompt=prompt,
+                    verbose=verbose
+                )
+                results = [result]
+                
+            elif path.is_dir():
+                # Directory analysis
+                video_files = list(find_videos(path, recursive=recursive))
+                
+                if not video_files:
+                    raise ValueError(f"No video files found in {path}")
+                
+                logger.info(f"Found {len(video_files)} video files in {path}")
+                
+                if len(video_files) == 1:
+                    # Single video processing
+                    results = [
+                        await self.analyze_single_video(
+                            model, video_files[0], mode, word_count, prompt, verbose
+                        )
+                    ]
+                else:
+                    # Batch processing with progress tracking
+                    results = await self.analyze_batch_with_progress(
+                        model=model,
+                        video_files=video_files,
+                        mode=mode,
+                        word_count=word_count,
+                        prompt=prompt,
+                        concurrency=concurrency,
+                        verbose=verbose
+                    )
+            else:
+                raise ValueError(f"Path does not exist: {path}")
         
         # Format output
         formatted_output = self._format_output(results, output_format, verbose)

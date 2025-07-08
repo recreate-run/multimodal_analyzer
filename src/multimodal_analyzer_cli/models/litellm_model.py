@@ -21,6 +21,9 @@ litellm.cache = Cache(type="disk", cache_dir="./.litellm_cache")
 
 class LiteLLMModel:
     """Unified interface for multiple LLM providers using LiteLLM."""
+    
+    # Image preprocessing threshold in KB - images larger than this will be converted to JPEG
+    IMAGE_PREPROCESSING_THRESHOLD_KB = 500
 
     def __init__(self, config: Config):
         self.config = config
@@ -29,6 +32,33 @@ class LiteLLMModel:
         """Encode image to base64 string."""
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
+    
+    def _preprocess_image(self, image_path: Path) -> Path:
+        """Preprocess image if needed (convert to JPEG if > 500KB)."""
+        # Check file size
+        file_size = image_path.stat().st_size
+        threshold_bytes = self.IMAGE_PREPROCESSING_THRESHOLD_KB * 1024
+        
+        if file_size > threshold_bytes:
+            logger.debug(f"Image {image_path.name} is {file_size} bytes (> {self.IMAGE_PREPROCESSING_THRESHOLD_KB}KB), converting to JPEG")
+            
+            # Create a temporary path for the converted image
+            temp_path = image_path.parent / f"{image_path.stem}_preprocessed.jpg"
+            
+            # Convert to JPEG
+            with Image.open(image_path) as img:
+                # Convert to RGB if needed (for transparency handling)
+                if img.mode in ("RGBA", "LA", "P"):
+                    img = img.convert("RGB")
+                
+                # Save as JPEG with high quality
+                img.save(temp_path, "JPEG", quality=95)
+            
+            logger.debug(f"Converted {image_path.name} to JPEG format: {temp_path.name}")
+            return temp_path
+        else:
+            logger.debug(f"Image {image_path.name} is {file_size} bytes (<= {self.IMAGE_PREPROCESSING_THRESHOLD_KB}KB), no preprocessing needed")
+            return image_path
 
     def _encode_audio(self, audio_path: Path) -> str:
         """Encode audio to base64 string."""
@@ -167,42 +197,51 @@ class LiteLLMModel:
             elif model.startswith("gemini") or model.startswith("google/"):
                 litellm.google_key = api_key
 
-        # Encode image
-        image_base64 = self._encode_image(image_path)
+        # Preprocess image if needed (convert to JPEG if > 1KB)
+        processed_image_path = self._preprocess_image(image_path)
+        
+        try:
+            # Encode image
+            image_base64 = self._encode_image(processed_image_path)
 
-        # Prepare the full prompt
-        full_prompt = f"{prompt} Please provide approximately {word_count} words in your description."
+            # Prepare the full prompt
+            full_prompt = f"{prompt} Please provide approximately {word_count} words in your description."
 
-        # Prepare messages for vision models
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": full_prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
-                    },
-                ],
+            # Prepare messages for vision models
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": full_prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
+                        },
+                    ],
+                }
+            ]
+
+            # Call LiteLLM with retry logic - raise exceptions immediately
+            response = await self._call_litellm_with_retry(
+                model=model, messages=messages, timeout=self.config.timeout_seconds
+            )
+
+            analysis = response.choices[0].message.content
+
+            return {
+                "image_path": str(image_path),
+                "model": model,
+                "prompt": prompt,
+                "word_count": word_count,
+                "analysis": analysis,
+                "success": True,
+                "error": None,
             }
-        ]
-
-        # Call LiteLLM with retry logic - raise exceptions immediately
-        response = await self._call_litellm_with_retry(
-            model=model, messages=messages, timeout=self.config.timeout_seconds
-        )
-
-        analysis = response.choices[0].message.content
-
-        return {
-            "image_path": str(image_path),
-            "model": model,
-            "prompt": prompt,
-            "word_count": word_count,
-            "analysis": analysis,
-            "success": True,
-            "error": None,
-        }
+        finally:
+            # Clean up temporary file if it was created
+            if processed_image_path != image_path and processed_image_path.exists():
+                processed_image_path.unlink()
+                logger.debug(f"Cleaned up temporary file: {processed_image_path.name}")
 
     async def analyze_audio_directly(
         self,

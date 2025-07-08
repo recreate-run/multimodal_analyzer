@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 
 import click
+import litellm
 from loguru import logger
 
 from .audio_analyzer import AudioAnalyzer
@@ -28,9 +29,14 @@ from .video_analyzer import VideoAnalyzer
 @click.option(
     "--path",
     "-p",
-    required=True,
     type=click.Path(exists=True),
     help="Media file or directory path",
+)
+@click.option(
+    "--files",
+    "-f",
+    multiple=True,
+    help="Explicit list of media files to analyze",
 )
 @click.option(
     "--audio-mode",
@@ -77,7 +83,8 @@ from .video_analyzer import VideoAnalyzer
 def main(
     type_: str,
     model: str,
-    path: str,
+    path: str | None,
+    files: tuple[str, ...],
     audio_mode: str | None,
     video_mode: str | None,
     word_count: int,
@@ -90,6 +97,12 @@ def main(
     verbose: bool,
 ) -> None:
     """AI-powered media analysis tool supporting image, audio, and video content."""
+
+    # Validate mutually exclusive options
+    if path and files:
+        raise click.ClickException("Cannot specify both --path and --files")
+    if not path and not files:
+        raise click.ClickException("Must specify either --path or --files")
 
     # Validate mode requirements
     if type_ == "audio" and not audio_mode:
@@ -121,6 +134,10 @@ def main(
     # Configure logging
     logger.remove()
     logger.add(lambda msg: click.echo(msg, err=True), level=log_level)
+    
+    # Enable LiteLLM verbose logging for DEBUG level
+    if log_level == "DEBUG":
+        litellm.set_verbose = True
 
     # Load configuration
     config = Config.load()
@@ -134,7 +151,8 @@ def main(
             result = asyncio.run(
                 analyzer.analyze(
                     model=model,
-                    path=Path(path),
+                    path=Path(path) if path else None,
+                    file_list=[Path(f) for f in files] if files else None,
                     word_count=word_count,
                     prompt=prompt,
                     output_format=output,
@@ -160,7 +178,8 @@ def main(
             result = asyncio.run(
                 analyzer.analyze(
                     model=model,
-                    path=Path(path),
+                    path=Path(path) if path else None,
+                    file_list=[Path(f) for f in files] if files else None,
                     mode=audio_mode,
                     word_count=word_count,
                     prompt=prompt,
@@ -187,7 +206,8 @@ def main(
             result = asyncio.run(
                 analyzer.analyze(
                     model=model,
-                    path=Path(path),
+                    path=Path(path) if path else None,
+                    file_list=[Path(f) for f in files] if files else None,
                     mode=video_mode,
                     word_count=word_count,
                     prompt=prompt,

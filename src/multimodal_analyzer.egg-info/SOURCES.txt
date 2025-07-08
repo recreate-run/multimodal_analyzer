@@ -16,6 +16,7 @@ src/multimodal_analyzer_cli/models/__init__.py
 src/multimodal_analyzer_cli/models/litellm_model.py
 src/multimodal_analyzer_cli/utils/__init__.py
 src/multimodal_analyzer_cli/utils/audio.py
+src/multimodal_analyzer_cli/utils/file_discovery.py
 src/multimodal_analyzer_cli/utils/image.py
 src/multimodal_analyzer_cli/utils/output.py
 src/multimodal_analyzer_cli/utils/prompts.py

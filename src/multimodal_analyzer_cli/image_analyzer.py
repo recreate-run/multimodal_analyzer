@@ -8,6 +8,7 @@ from tqdm.asyncio import tqdm
 from .config import Config
 from .models.litellm_model import LiteLLMModel
 from .utils.image import find_images
+from .utils.file_discovery import validate_file_list
 from .utils.output import OutputFormatter
 from .utils.prompts import PromptManager
 
@@ -22,7 +23,8 @@ class ImageAnalyzer:
     async def analyze(
         self,
         model: str,
-        path: Path,
+        path: Path | None = None,
+        file_list: list[Path] | None = None,
         word_count: int = 100,
         prompt: str | None = None,
         output_format: str = "json",
@@ -43,12 +45,18 @@ class ImageAnalyzer:
         )
 
         # Find images to process
-        image_paths = list(
-            find_images(path, recursive, self.config.supported_image_formats)
-        )
+        if file_list:
+            image_paths = validate_file_list([str(f) for f in file_list], "image")
+        else:
+            if not path:
+                raise ValueError("Either path or file_list must be provided")
+            image_paths = list(
+                find_images(path, recursive, self.config.supported_image_formats)
+            )
 
         if not image_paths:
-            raise ValueError(f"No supported image files found in {path}")
+            source_desc = "file list" if file_list else f"path {path}"
+            raise ValueError(f"No supported image files found in {source_desc}")
 
         logger.info(f"Found {len(image_paths)} image(s) to analyze")
 

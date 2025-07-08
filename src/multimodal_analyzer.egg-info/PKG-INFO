@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: multimodal-analyzer
-Version: 0.2.0
-Summary: AI-powered media analysis tool for images and audio using multiple LLM providers
+Version: 0.2.2
+Summary: AI-powered media analysis tool for images, audio, and video using multiple LLM providers
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -36,6 +36,8 @@ AI-powered media analysis tool using multiple LLM providers through LiteLLM. Ana
 
 - **Multi-model Support**: Use Gemini, OpenAI, Claude, and more through LiteLLM
 - **Image, Audio & Video Analysis**: Single files or batch process entire directories
+- **Hybrid File Input**: Specify files by directory path OR explicit file lists from multiple locations
+- **Automatic Image Preprocessing**: Images > 500KB are automatically converted to JPEG for optimal processing
 - **Concurrent Processing**: Configurable concurrency with progress tracking
 - **Multiple Output Formats**: JSON, Markdown, and Text export
 - **Custom Prompts**: Flexible analysis with custom or predefined prompts
@@ -45,8 +47,9 @@ AI-powered media analysis tool using multiple LLM providers through LiteLLM. Ana
 **Global Installation (Recommended)**
 
 ```bash
-# Install multimodal-analyzer globally
-uv tool install multimodal-analyzer
+# Build and install multimodal-analyzer globally
+uv build
+uv tool install dist/multimodal_analyzer-<version>-py3-none-any.whl
 ```
 
 **Development Installation**
@@ -57,6 +60,47 @@ cd multimodal-analyzer
 uv sync
 ```
 
+## Hybrid File Input Support
+
+The Media Analyzer CLI supports two flexible input modes:
+
+### Directory Path Mode (`--path`)
+Use `--path` to analyze files from directories or single files:
+
+```bash
+# Single file
+multimodal-analyzer --type image --model gemini/gemini-2.5-flash --path photo.jpg
+
+# Directory (all supported files)
+multimodal-analyzer --type image --model gemini/gemini-2.5-flash --path ./photos/
+
+# Recursive directory scan
+multimodal-analyzer --type image --model gemini/gemini-2.5-flash --path ./dataset/ --recursive
+```
+
+### Explicit File List Mode (`--files`)
+Use `--files` to specify exact files from multiple locations:
+
+```bash
+# Multiple files from different directories
+multimodal-analyzer --type image --model gemini/gemini-2.5-flash \
+  --files /home/user/photo1.jpg \
+  --files /work/project/chart.png \
+  --files ./local/screenshot.jpg
+
+# Audio files from various locations
+multimodal-analyzer --type audio --model gemini/gemini-2.5-flash \
+  --files recording1.mp3 \
+  --files /meetings/call.wav \
+  --audio-mode transcript
+```
+
+### When to Use Each Mode
+
+- **Use `--path`** for processing all files in a directory or subdirectories
+- **Use `--files`** for selective processing of specific files from multiple locations
+- **Cannot use both** `--path` and `--files` simultaneously (mutually exclusive)
+
 ## Image Analysis Usage
 
 ### Basic Image Commands
@@ -66,7 +110,7 @@ uv sync
 multimodal-analyzer --type image --model gemini/gemini-2.5-flash --path photo.jpg
 
 # Batch process directory
-multimodal-analyzer --type image --model gpt-4o-mini --path ./photos/ --output markdown
+multimodal-analyzer --type image --model azure/gpt-4.1-mini --path ./photos/ --output markdown
 
 # Development installation (prefix with uv run)
 uv run multimodal-analyzer --type image --model gemini/gemini-2.5-flash --path photo.jpg
@@ -82,6 +126,13 @@ multimodal-analyzer --type image --model claude-3-sonnet-20240229 --path chart.j
 # Recursive batch processing
 multimodal-analyzer --type image --model gpt-4o-mini --path ./dataset/ \
   --recursive --concurrency 5 --output json --output-file results.json
+
+# Analyze specific images from multiple directories
+multimodal-analyzer --type image --model gpt-4o-mini \
+  --files ./screenshots/chart1.png \
+  --files ./photos/diagram.jpg \
+  --files /tmp/analysis_image.png \
+  --prompt "Compare these visuals" --word-count 200
 ```
 
 ## Audio Analysis Usage
@@ -106,6 +157,13 @@ multimodal-analyzer --type audio --model whisper-1 --path ./audio/ \
 # Content analysis with custom prompts
 multimodal-analyzer --type audio --model gpt-4o-mini --path podcast.wav \
   --audio-mode description --prompt "Summarize key insights" --word-count 200
+
+# Transcribe specific audio files from different locations
+multimodal-analyzer --type audio --model whisper-1 \
+  --files ./meetings/standup.mp3 \
+  --files ./interviews/candidate1.wav \
+  --files /recordings/conference_call.m4a \
+  --audio-mode transcript --output markdown --output-file transcripts.md
 ```
 
 ## Video Analysis Usage
@@ -134,6 +192,14 @@ multimodal-analyzer --type video --model gemini/gemini-2.5-flash --path ./videos
 # Video analysis with detailed output
 multimodal-analyzer --type video --model gemini/gemini-2.5-flash --path tutorial.mp4 \
   --video-mode description --verbose --word-count 200
+
+# Analyze specific videos from multiple projects
+multimodal-analyzer --type video --model gemini/gemini-2.5-flash \
+  --files ./project1/demo.mp4 \
+  --files ./project2/presentation.avi \
+  --files /shared/training_video.mov \
+  --video-mode description --prompt "Focus on key features demonstrated" \
+  --word-count 300 --output json --output-file video_summaries.json
 ```
 
 ## Models
@@ -147,20 +213,23 @@ Supports any model available through [LiteLLM](https://docs.litellm.ai/docs/prov
 Options:
   -t, --type [image|audio|video]  Analysis type: image, audio, or video (required)
   -m, --model TEXT                LiteLLM model (required)
-  -p, --path PATH                 Media file or directory path (required)
+  -p, --path PATH                 Media file or directory path (mutually exclusive with --files)
+  -f, --files TEXT                Explicit list of media files to analyze (mutually exclusive with --path)
   --audio-mode [transcript|description] Audio analysis mode (required for audio type)
   --video-mode [description]      Video analysis mode (required for video type)
   -w, --word-count INTEGER        Target description word count [default: 100]
   --prompt TEXT                   Custom analysis prompt
   -o, --output [json|markdown|text] Output format [default: json]
   --output-file TEXT              Save results to file
-  -r, --recursive                 Process directories recursively
+  -r, --recursive                 Process directories recursively (only with --path)
   -c, --concurrency INTEGER       Concurrent requests [default: 3]
   --log-level [DEBUG|INFO|WARNING|ERROR] Logging level [default: INFO]
   -v, --verbose                   Show detailed output including model info
   --version                       Show version and exit
   --help                          Show help and exit
 ```
+
+**Note**: You must specify either `--path` OR `--files`, but not both. Use `--path` for directory processing and `--files` for explicit file lists.
 
 ## Development
 

@@ -16,6 +16,7 @@ from .utils.audio import (
     prepare_audio_for_transcription,
     validate_audio_file,
 )
+from .utils.file_discovery import validate_file_list
 from .utils.output import OutputFormatter
 from .utils.prompts import get_default_audio_prompt
 
@@ -143,8 +144,9 @@ class AudioAnalyzer:
     async def analyze(
         self,
         model: str,
-        path: Path,
         mode: str,
+        path: Path | None = None,
+        file_list: list[Path] | None = None,
         word_count: int = 100,
         prompt: str | None = None,
         output_format: str = "json",
@@ -153,40 +155,70 @@ class AudioAnalyzer:
         concurrency: int = 3,
         verbose: bool = False
     ) -> str:
-        """Main analysis method that handles both single files and directories."""
+        """Main analysis method that handles files, directories, and explicit file lists."""
         
-        if path.is_file():
-            # Single file analysis
-            result = await self.analyze_single_audio(
-                model=model,
-                audio_path=path,
-                mode=mode,
-                word_count=word_count,
-                prompt=prompt,
-                verbose=verbose
-            )
-            results = [result]
+        if file_list:
+            # File list analysis
+            audio_files = validate_file_list([str(f) for f in file_list], "audio")
             
-        elif path.is_dir():
-            # Directory analysis
-            audio_files = get_media_files(path, recursive=recursive)
-            
-            if not audio_files:
-                raise ValueError(f"No audio/video files found in {path}")
-            
-            logger.info(f"Found {len(audio_files)} media files in {path}")
-            
-            results = await self.analyze_batch(
-                model=model,
-                audio_files=audio_files,
-                mode=mode,
-                word_count=word_count,
-                prompt=prompt,
-                concurrency=concurrency,
-                verbose=verbose
-            )
+            if len(audio_files) == 1:
+                # Single file analysis
+                result = await self.analyze_single_audio(
+                    model=model,
+                    audio_path=audio_files[0],
+                    mode=mode,
+                    word_count=word_count,
+                    prompt=prompt,
+                    verbose=verbose
+                )
+                results = [result]
+            else:
+                # Batch analysis
+                results = await self.analyze_batch(
+                    model=model,
+                    audio_files=audio_files,
+                    mode=mode,
+                    word_count=word_count,
+                    prompt=prompt,
+                    concurrency=concurrency,
+                    verbose=verbose
+                )
         else:
-            raise ValueError(f"Path does not exist: {path}")
+            if not path:
+                raise ValueError("Either path or file_list must be provided")
+            
+            if path.is_file():
+                # Single file analysis
+                result = await self.analyze_single_audio(
+                    model=model,
+                    audio_path=path,
+                    mode=mode,
+                    word_count=word_count,
+                    prompt=prompt,
+                    verbose=verbose
+                )
+                results = [result]
+                
+            elif path.is_dir():
+                # Directory analysis
+                audio_files = get_media_files(path, recursive=recursive)
+                
+                if not audio_files:
+                    raise ValueError(f"No audio/video files found in {path}")
+                
+                logger.info(f"Found {len(audio_files)} media files in {path}")
+                
+                results = await self.analyze_batch(
+                    model=model,
+                    audio_files=audio_files,
+                    mode=mode,
+                    word_count=word_count,
+                    prompt=prompt,
+                    concurrency=concurrency,
+                    verbose=verbose
+                )
+            else:
+                raise ValueError(f"Path does not exist: {path}")
         
         # Format output
         formatted_output = self.output_formatter.format_audio_results(

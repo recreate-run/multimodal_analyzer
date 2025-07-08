@@ -395,3 +395,92 @@ class TestCLI:
         assert "video" in result.output
         assert "--video-mode" in result.output
         assert "Video analysis mode" in result.output
+
+    def test_missing_required_options_hybrid(self):
+        """Test CLI fails when neither --path nor --files is provided."""
+        result = self.runner.invoke(main, [
+            "--type", "image", 
+            "--model", "gpt-4o-mini"
+        ])
+        assert result.exit_code != 0
+        assert "Must specify either --path or --files" in result.output
+
+    def test_mutually_exclusive_options(self):
+        """Test CLI fails when both --path and --files are provided."""
+        with self.runner.isolated_filesystem():
+            # Create a test file so path validation passes
+            with open("test.jpg", "w") as f:
+                f.write("test")
+
+            result = self.runner.invoke(main, [
+                "--type", "image",
+                "--model", "gpt-4o-mini",
+                "--path", "test.jpg",
+                "--files", "test.jpg"
+            ])
+            assert result.exit_code != 0
+            assert "Cannot specify both --path and --files" in result.output
+
+    @pytest.mark.integration
+    def test_files_mode_analysis(self):
+        """Test --files mode with explicit file list using real API calls."""
+        model_name = get_primary_image_model()
+        require_api_credentials()
+
+        with self.runner.isolated_filesystem():
+            # Create multiple test images
+            with FileManager() as manager:
+                img1 = manager.create_test_image(width=50, height=50, color="red")
+                img2 = manager.create_test_image(width=50, height=50, color="blue")
+                shutil.copy2(img1, "test1.jpg")
+                shutil.copy2(img2, "test2.jpg")
+
+            result = self.runner.invoke(
+                main,
+                [
+                    "--type", "image",
+                    "--model", model_name,
+                    "--files", "test1.jpg",
+                    "--files", "test2.jpg",
+                    "--word-count", "30"
+                ]
+            )
+
+            # Test must succeed - fail if CLI failed
+            if result.exit_code != 0:
+                pytest.fail(f"CLI files mode analysis failed: {result.output}")
+
+            # Should process both images
+            assert result.output is not None
+            assert len(result.output) > 0
+
+    def test_files_mode_nonexistent_file(self):
+        """Test --files mode fails fast on nonexistent file."""
+        result = self.runner.invoke(
+            main,
+            [
+                "--type", "image",
+                "--model", "gpt-4o-mini",
+                "--files", "nonexistent.jpg"
+            ]
+        )
+        assert result.exit_code != 0
+        assert "File not found" in result.output
+
+    def test_files_mode_unsupported_format(self):
+        """Test --files mode fails fast on unsupported format."""
+        with self.runner.isolated_filesystem():
+            # Create a text file
+            with open("test.txt", "w") as f:
+                f.write("not an image")
+
+            result = self.runner.invoke(
+                main,
+                [
+                    "--type", "image",
+                    "--model", "gpt-4o-mini",
+                    "--files", "test.txt"
+                ]
+            )
+            assert result.exit_code != 0
+            assert "Unsupported format" in result.output
