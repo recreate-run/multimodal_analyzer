@@ -8,6 +8,7 @@ venv/
 .cache/
 .pytest_cache/
 .ruff_cache/
+build/
 
 # Media
 *.mp4
