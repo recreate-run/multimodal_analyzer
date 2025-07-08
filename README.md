@@ -15,15 +15,16 @@ AI-powered media analysis tool using multiple LLM providers through LiteLLM. Ana
 **Global Installation (Recommended)**
 
 ```bash
-# Install media-analyzer globally
-uv tool install media-analyzer
+# Install multimodal-analyzer globally
+uv build
+uv tool install multimodal-analyzer
 ```
 
 **Development Installation**
 
 ```bash
 git clone <repository-url>
-cd media-analyzer
+cd multimodal-analyzer
 uv sync
 ```
 
@@ -33,24 +34,24 @@ uv sync
 
 ```bash
 # Analyze single image
-media-analyzer --type image --model gemini/gemini-2.5-flash --path photo.jpg
+multimodal-analyzer --type image --model gemini/gemini-2.5-flash --path photo.jpg
 
 # Batch process directory
-media-analyzer --type image --model gpt-4o-mini --path ./photos/ --output markdown
+multimodal-analyzer --type image --model gpt-4o-mini --path ./photos/ --output markdown
 
 # Development installation (prefix with uv run)
-uv run media-analyzer --type image --model gemini/gemini-2.5-flash --path photo.jpg
+uv run multimodal-analyzer --type image --model gemini/gemini-2.5-flash --path photo.jpg
 ```
 
 ### Advanced Image Analysis
 
 ```bash
 # Custom prompt with word count
-media-analyzer --type image --model claude-3-sonnet-20240229 --path chart.jpg \
+multimodal-analyzer --type image --model claude-3-sonnet-20240229 --path chart.jpg \
   --prompt "Analyze this chart focusing on data insights" --word-count 300
 
 # Recursive batch processing
-media-analyzer --type image --model gpt-4o-mini --path ./dataset/ \
+multimodal-analyzer --type image --model gpt-4o-mini --path ./dataset/ \
   --recursive --concurrency 5 --output json --output-file results.json
 ```
 
@@ -60,21 +61,21 @@ media-analyzer --type image --model gpt-4o-mini --path ./dataset/ \
 
 ```bash
 # Transcribe audio
-media-analyzer --type audio --model whisper-1 --path audio.mp3 --audio-mode transcript
+multimodal-analyzer --type audio --model whisper-1 --path audio.mp3 --audio-mode transcript
 
 # Analyze audio content
-media-analyzer --type audio --model gpt-4o-mini --path podcast.wav --audio-mode description
+multimodal-analyzer --type audio --model gpt-4o-mini --path podcast.wav --audio-mode description
 ```
 
 ### Advanced Audio Processing
 
 ```bash
 # Batch transcription
-media-analyzer --type audio --model whisper-1 --path ./audio/ \
+multimodal-analyzer --type audio --model whisper-1 --path ./audio/ \
   --audio-mode transcript --output text --output-file transcripts.txt
 
 # Content analysis with custom prompts
-media-analyzer --type audio --model gpt-4o-mini --path podcast.wav \
+multimodal-analyzer --type audio --model gpt-4o-mini --path podcast.wav \
   --audio-mode description --prompt "Summarize key insights" --word-count 200
 ```
 
@@ -86,23 +87,23 @@ media-analyzer --type audio --model gpt-4o-mini --path podcast.wav \
 
 ```bash
 # Analyze video content (Gemini only)
-media-analyzer --type video --model gemini/gemini-2.5-flash --path video.mp4 --video-mode description
+multimodal-analyzer --type video --model gemini/gemini-2.5-flash --path video.mp4 --video-mode description
 ```
 
 ### Advanced Video Analysis
 
 ```bash
 # Single video analysis
-media-analyzer --type video --model gemini/gemini-2.5-flash --path presentation.mp4 \
+multimodal-analyzer --type video --model gemini/gemini-2.5-flash --path presentation.mp4 \
   --video-mode description --word-count 150
 
 # Batch video processing with custom prompts
-media-analyzer --type video --model gemini/gemini-2.5-flash --path ./videos/ \
+multimodal-analyzer --type video --model gemini/gemini-2.5-flash --path ./videos/ \
   --video-mode description --prompt "Describe the visual content and any audio" \
   --recursive --output markdown --output-file video_analysis.md
 
 # Video analysis with detailed output
-media-analyzer --type video --model gemini/gemini-2.5-flash --path tutorial.mp4 \
+multimodal-analyzer --type video --model gemini/gemini-2.5-flash --path tutorial.mp4 \
   --video-mode description --verbose --word-count 200
 ```
 
@@ -169,5 +170,5 @@ uv run python examples/sample_usage.py
 Enable detailed logging for troubleshooting:
 
 ```bash
-media-analyzer --type image --model gemini/gemini-2.5-flash --path image.jpg --log-level DEBUG
+multimodal-analyzer --type image --model gemini/gemini-2.5-flash --path image.jpg --log-level DEBUG
 ```

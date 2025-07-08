@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from media_analyzer_cli.config import Config
-from media_analyzer_cli.video_analyzer import VideoAnalyzer
+from multimodal_analyzer_cli.config import Config
+from multimodal_analyzer_cli.video_analyzer import VideoAnalyzer
 
 from .test_utils import (
     cleanup_temp_file,
@@ -43,7 +43,7 @@ class TestVideoAnalyzer:
             video_path=test_video_path,
             mode="description",
             word_count=50,
-            verbose=True
+            verbose=True,
         )
 
         # Check result structure
@@ -74,7 +74,9 @@ class TestVideoAnalyzer:
         temp_files = []
         try:
             for i in range(2):
-                temp_file = tempfile.NamedTemporaryFile(suffix=f"_test_{i}.mp4", delete=False)
+                temp_file = tempfile.NamedTemporaryFile(
+                    suffix=f"_test_{i}.mp4", delete=False
+                )
                 temp_file.write(b"fake video content")
                 temp_file.flush()
                 temp_files.append(Path(temp_file.name))
@@ -85,7 +87,7 @@ class TestVideoAnalyzer:
                 video_files=temp_files,
                 mode="description",
                 word_count=30,
-                concurrency=2
+                concurrency=2,
             )
 
             assert len(results) == 2
@@ -116,9 +118,7 @@ class TestVideoAnalyzer:
 
         with pytest.raises((ValueError, FileNotFoundError)):
             await self.analyzer.analyze_single_video(
-                model=model_name,
-                video_path=nonexistent_path,
-                mode="description"
+                model=model_name, video_path=nonexistent_path, mode="description"
             )
 
     @pytest.mark.asyncio
@@ -134,18 +134,18 @@ class TestVideoAnalyzer:
 
         try:
             # Test invalid mode
-            with pytest.raises(ValueError, match="Video analysis only supports 'description' mode"):
+            with pytest.raises(
+                ValueError, match="Video analysis only supports 'description' mode"
+            ):
                 await self.analyzer.analyze_single_video(
-                    model=model_name,
-                    video_path=fake_video_path,
-                    mode="transcript"
+                    model=model_name, video_path=fake_video_path, mode="transcript"
                 )
 
-            with pytest.raises(ValueError, match="Video analysis only supports 'description' mode"):
+            with pytest.raises(
+                ValueError, match="Video analysis only supports 'description' mode"
+            ):
                 await self.analyzer.analyze_single_video(
-                    model=model_name,
-                    video_path=fake_video_path,
-                    mode="summary"
+                    model=model_name, video_path=fake_video_path, mode="summary"
                 )
         finally:
             cleanup_temp_file(fake_video_path)
@@ -159,7 +159,7 @@ class TestVideoAnalyzer:
         # Create a temporary directory with video files
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            
+
             # Create test video files
             (temp_path / "video1.mp4").touch()
             (temp_path / "video2.avi").touch()
@@ -174,18 +174,21 @@ class TestVideoAnalyzer:
                     word_count=30,
                     output_format="json",
                     recursive=False,
-                    concurrency=2
+                    concurrency=2,
                 )
 
                 assert isinstance(formatted_output, str)
                 # Should contain results for 2 video files
                 import json
+
                 results = json.loads(formatted_output)
                 assert len(results) == 2
 
             except ValueError as e:
                 # This is expected if video validation fails for fake files
-                assert "validation failed" in str(e) or "No video streams found" in str(e)
+                assert "validation failed" in str(e) or "No video streams found" in str(
+                    e
+                )
 
     @pytest.mark.asyncio
     async def test_video_analyzer_non_gemini_model_fails_fast(self):
@@ -197,18 +200,20 @@ class TestVideoAnalyzer:
 
         try:
             # Test with non-Gemini model
-            with pytest.raises(ValueError, match="Video analysis only supports Gemini models"):
+            with pytest.raises(
+                ValueError, match="Video analysis only supports Gemini models"
+            ):
                 await self.analyzer.analyze_single_video(
-                    model="gpt-4o-mini",
-                    video_path=fake_video_path,
-                    mode="description"
+                    model="gpt-4o-mini", video_path=fake_video_path, mode="description"
                 )
 
-            with pytest.raises(ValueError, match="Video analysis only supports Gemini models"):
+            with pytest.raises(
+                ValueError, match="Video analysis only supports Gemini models"
+            ):
                 await self.analyzer.analyze_single_video(
                     model="claude-3-sonnet-20240229",
                     video_path=fake_video_path,
-                    mode="description"
+                    mode="description",
                 )
         finally:
             cleanup_temp_file(fake_video_path)
@@ -231,8 +236,8 @@ class TestVideoAnalyzer:
                     "format": "mp4",
                     "width": 1920,
                     "height": 1080,
-                    "file_size_mb": 15.2
-                }
+                    "file_size_mb": 15.2,
+                },
             }
         ]
 

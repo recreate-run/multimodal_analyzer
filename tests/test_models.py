@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from media_analyzer_cli.config import Config
-from media_analyzer_cli.models.litellm_model import LiteLLMModel
+from multimodal_analyzer_cli.config import Config
+from multimodal_analyzer_cli.models.litellm_model import LiteLLMModel
 
 from .test_utils import (
     FileManager,
@@ -152,9 +152,7 @@ class TestLiteLLMModel:
         test_audio_path = get_test_audio_path()
 
         result = await self.model.analyze_audio_directly(
-            model=model_name, 
-            audio_path=test_audio_path,
-            mode="transcript"
+            model=model_name, audio_path=test_audio_path, mode="transcript"
         )
 
         # Check result structure
@@ -178,9 +176,9 @@ class TestLiteLLMModel:
 
         with pytest.raises(ValueError, match="Invalid audio file"):
             await self.model.analyze_audio_directly(
-                model="gemini/gemini-2.5-flash", 
+                model="gemini/gemini-2.5-flash",
                 audio_path=nonexistent_path,
-                mode="transcript"
+                mode="transcript",
             )
 
     def test_validate_audio_success(self):
@@ -209,7 +207,7 @@ class TestLiteLLMModel:
             model=model_name,
             video_path=test_video_path,
             mode="description",
-            word_count=50
+            word_count=50,
         )
 
         # Check result structure
@@ -239,9 +237,7 @@ class TestLiteLLMModel:
 
         with pytest.raises(ValueError, match="Invalid video file"):
             await self.model.analyze_video(
-                model=model_name,
-                video_path=nonexistent_path,
-                mode="description"
+                model=model_name, video_path=nonexistent_path, mode="description"
             )
 
     @pytest.mark.asyncio
@@ -257,18 +253,18 @@ class TestLiteLLMModel:
 
         try:
             # Test invalid mode
-            with pytest.raises(ValueError, match="Video analysis only supports 'description' mode"):
+            with pytest.raises(
+                ValueError, match="Video analysis only supports 'description' mode"
+            ):
                 await self.model.analyze_video(
-                    model=model_name,
-                    video_path=fake_video_path,
-                    mode="transcript"
+                    model=model_name, video_path=fake_video_path, mode="transcript"
                 )
 
-            with pytest.raises(ValueError, match="Video analysis only supports 'description' mode"):
+            with pytest.raises(
+                ValueError, match="Video analysis only supports 'description' mode"
+            ):
                 await self.model.analyze_video(
-                    model=model_name,
-                    video_path=fake_video_path,
-                    mode="summary"
+                    model=model_name, video_path=fake_video_path, mode="summary"
                 )
         finally:
             cleanup_temp_file(fake_video_path)
@@ -283,18 +279,20 @@ class TestLiteLLMModel:
 
         try:
             # Test with non-Gemini model
-            with pytest.raises(ValueError, match="Video analysis only supports Gemini models"):
+            with pytest.raises(
+                ValueError, match="Video analysis only supports Gemini models"
+            ):
                 await self.model.analyze_video(
-                    model="gpt-4o-mini",
-                    video_path=fake_video_path,
-                    mode="description"
+                    model="gpt-4o-mini", video_path=fake_video_path, mode="description"
                 )
 
-            with pytest.raises(ValueError, match="Video analysis only supports Gemini models"):
+            with pytest.raises(
+                ValueError, match="Video analysis only supports Gemini models"
+            ):
                 await self.model.analyze_video(
                     model="claude-3-sonnet-20240229",
                     video_path=fake_video_path,
-                    mode="description"
+                    mode="description",
                 )
         finally:
             cleanup_temp_file(fake_video_path)

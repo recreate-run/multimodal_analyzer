@@ -5,7 +5,7 @@ import numpy as np
 from click.testing import CliRunner
 from pydub import AudioSegment
 
-from media_analyzer_cli.cli import main
+from multimodal_analyzer_cli.cli import main
 
 from .test_utils import get_test_audio_path
 
@@ -18,8 +18,6 @@ class TestAudioCLI:
         self.runner = CliRunner()
         # Use real test audio file
         self.test_audio_path = get_test_audio_path()
-
-
 
     def test_cli_missing_type_parameter(self):
         """Test that CLI requires --type parameter."""

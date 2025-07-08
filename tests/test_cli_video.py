@@ -3,9 +3,13 @@
 import pytest
 from click.testing import CliRunner
 
-from media_analyzer_cli.cli import main
+from multimodal_analyzer_cli.cli import main
 
-from .test_utils import get_primary_video_model, get_test_video_path, require_api_credentials
+from .test_utils import (
+    get_primary_video_model,
+    get_test_video_path,
+    require_api_credentials,
+)
 
 
 class TestCLIVideo:
@@ -34,19 +38,27 @@ class TestCLIVideo:
             result = self.runner.invoke(
                 main,
                 [
-                    "--type", "video",
-                    "--model", model_name,
-                    "--path", str(test_video_path),
-                    "--video-mode", "description",
-                    "--word-count", "40",
-                    "--output", output_format,
-                    "--verbose"
-                ]
+                    "--type",
+                    "video",
+                    "--model",
+                    model_name,
+                    "--path",
+                    str(test_video_path),
+                    "--video-mode",
+                    "description",
+                    "--word-count",
+                    "40",
+                    "--output",
+                    output_format,
+                    "--verbose",
+                ],
             )
 
             # For real video with valid API, should succeed
             if result.exit_code != 0:
-                pytest.fail(f"CLI video analysis failed with {output_format}: {result.output}")
+                pytest.fail(
+                    f"CLI video analysis failed with {output_format}: {result.output}"
+                )
 
             assert result.output is not None
             assert len(result.output) > 0
@@ -73,18 +85,27 @@ class TestCLIVideo:
         result = self.runner.invoke(
             main,
             [
-                "--type", "video",
-                "--model", model_name,
-                "--path", str(test_video_path),
-                "--video-mode", "description",
-                "--prompt", custom_prompt,
-                "--word-count", "30",
-                "--output", "json"
-            ]
+                "--type",
+                "video",
+                "--model",
+                model_name,
+                "--path",
+                str(test_video_path),
+                "--video-mode",
+                "description",
+                "--prompt",
+                custom_prompt,
+                "--word-count",
+                "30",
+                "--output",
+                "json",
+            ],
         )
 
         if result.exit_code != 0:
-            pytest.fail(f"CLI video analysis with custom prompt failed: {result.output}")
+            pytest.fail(
+                f"CLI video analysis with custom prompt failed: {result.output}"
+            )
 
         assert result.output is not None
         assert len(result.output) > 0
@@ -101,30 +122,40 @@ class TestCLIVideo:
 
         with self.runner.isolated_filesystem():
             output_file = "video_analysis_results.json"
-            
+
             result = self.runner.invoke(
                 main,
                 [
-                    "--type", "video",
-                    "--model", model_name,
-                    "--path", str(test_video_path),
-                    "--video-mode", "description",
-                    "--word-count", "25",
-                    "--output", "json",
-                    "--output-file", output_file
-                ]
+                    "--type",
+                    "video",
+                    "--model",
+                    model_name,
+                    "--path",
+                    str(test_video_path),
+                    "--video-mode",
+                    "description",
+                    "--word-count",
+                    "25",
+                    "--output",
+                    "json",
+                    "--output-file",
+                    output_file,
+                ],
             )
 
             if result.exit_code != 0:
-                pytest.fail(f"CLI video analysis with file output failed: {result.output}")
+                pytest.fail(
+                    f"CLI video analysis with file output failed: {result.output}"
+                )
 
             # Check that file was created
             from pathlib import Path
+
             output_path = Path(output_file)
             assert output_path.exists()
-            
+
             # Check file contents
-            with open(output_path, 'r') as f:
+            with open(output_path, "r") as f:
                 content = f.read()
                 assert len(content) > 0
                 assert "{" in content  # JSON format

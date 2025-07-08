@@ -4,15 +4,15 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from media_analyzer_cli.cli import main
+from multimodal_analyzer_cli.cli import main
 
 from .test_utils import (
-    FileManager, 
-    get_primary_image_model, 
+    FileManager,
+    get_primary_image_model,
     get_primary_video_model,
     get_test_image_path,
     get_test_video_path,
-    require_api_credentials
+    require_api_credentials,
 )
 
 
@@ -70,13 +70,22 @@ class TestCLI:
 
             result = self.runner.invoke(
                 main,
-                ["--type", "image", "--model", model_name, "--path", image_file, "--word-count", "30"],
+                [
+                    "--type",
+                    "image",
+                    "--model",
+                    model_name,
+                    "--path",
+                    image_file,
+                    "--word-count",
+                    "30",
+                ],
             )
 
             # Test must succeed - fail if CLI failed
             if result.exit_code != 0:
                 pytest.fail(f"CLI image analysis failed: {result.output}")
-            
+
             # Should return some JSON output
             assert result.output is not None
             assert len(result.output) > 0
@@ -119,7 +128,7 @@ class TestCLI:
             # Test must succeed - fail if CLI failed
             if result.exit_code != 0:
                 pytest.fail(f"CLI custom options test failed: {result.output}")
-            
+
             # Check if output file was created
             output_file = Path("results.md")
             if output_file.exists():
@@ -157,7 +166,7 @@ class TestCLI:
             # Test must succeed - fail if CLI failed
             if result.exit_code != 0:
                 pytest.fail(f"CLI verbose flag test failed: {result.output}")
-            
+
             # Verbose mode should include more detailed output
             assert result.output is not None
             assert len(result.output) > 0
@@ -166,7 +175,7 @@ class TestCLI:
         """Test CLI with invalid model name."""
         # Use the actual test image from data directory
         test_image_path = get_test_image_path()
-        
+
         with self.runner.isolated_filesystem():
             # Copy the real test image
             if test_image_path.exists():
@@ -180,7 +189,15 @@ class TestCLI:
                     image_file = "test.jpg"
 
             result = self.runner.invoke(
-                main, ["--type", "image", "--model", "invalid-model-name", "--path", image_file]
+                main,
+                [
+                    "--type",
+                    "image",
+                    "--model",
+                    "invalid-model-name",
+                    "--path",
+                    image_file,
+                ],
             )
 
             # With immediate exception raising, the CLI should now fail with non-zero exit code
@@ -189,7 +206,15 @@ class TestCLI:
     def test_nonexistent_image_path(self):
         """Test CLI with non-existent image path."""
         result = self.runner.invoke(
-            main, ["--type", "image", "--model", "gpt-4o-mini", "--path", "/nonexistent/image.jpg"]
+            main,
+            [
+                "--type",
+                "image",
+                "--model",
+                "gpt-4o-mini",
+                "--path",
+                "/nonexistent/image.jpg",
+            ],
         )
 
         # Should fail with file not found error
@@ -236,7 +261,7 @@ class TestCLI:
             # Test must succeed - fail if CLI failed
             if result.exit_code != 0:
                 pytest.fail(f"CLI batch directory processing failed: {result.output}")
-            
+
             # Should process both images
             assert result.output is not None
             assert len(result.output) > 0
@@ -254,13 +279,19 @@ class TestCLI:
         result = self.runner.invoke(
             main,
             [
-                "--type", "video",
-                "--model", model_name,
-                "--path", str(test_video_path),
-                "--video-mode", "description",
-                "--word-count", "30",
-                "--output", "json"
-            ]
+                "--type",
+                "video",
+                "--model",
+                model_name,
+                "--path",
+                str(test_video_path),
+                "--video-mode",
+                "description",
+                "--word-count",
+                "30",
+                "--output",
+                "json",
+            ],
         )
 
         # For real video with valid API, should succeed
@@ -275,17 +306,20 @@ class TestCLI:
             # Create a fake video file that exists
             fake_video = Path("fake_video.mp4")
             fake_video.touch()
-            
+
             # Test missing video mode
             result = self.runner.invoke(
                 main,
                 [
-                    "--type", "video",
-                    "--model", "gemini/gemini-2.5-flash",
-                    "--path", str(fake_video)
-                ]
+                    "--type",
+                    "video",
+                    "--model",
+                    "gemini/gemini-2.5-flash",
+                    "--path",
+                    str(fake_video),
+                ],
             )
-            
+
             assert result.exit_code != 0
             assert "video-mode is required" in result.output
 
@@ -293,16 +327,23 @@ class TestCLI:
             result = self.runner.invoke(
                 main,
                 [
-                    "--type", "video",
-                    "--model", "gemini/gemini-2.5-flash", 
-                    "--path", str(fake_video),
-                    "--video-mode", "description",
-                    "--audio-mode", "transcript"
-                ]
+                    "--type",
+                    "video",
+                    "--model",
+                    "gemini/gemini-2.5-flash",
+                    "--path",
+                    str(fake_video),
+                    "--video-mode",
+                    "description",
+                    "--audio-mode",
+                    "transcript",
+                ],
             )
-            
+
             assert result.exit_code != 0
-            assert "audio-mode should not be used when --type is 'video'" in result.output
+            assert (
+                "audio-mode should not be used when --type is 'video'" in result.output
+            )
 
     def test_cli_video_batch_processing(self):
         """Test CLI video batch processing with directory."""
@@ -312,7 +353,7 @@ class TestCLI:
             # Create test directory with video files
             test_dir = Path("test_videos")
             test_dir.mkdir()
-            
+
             # Create fake video files
             (test_dir / "video1.mp4").touch()
             (test_dir / "video2.avi").touch()
@@ -321,25 +362,35 @@ class TestCLI:
             result = self.runner.invoke(
                 main,
                 [
-                    "--type", "video",
-                    "--model", model_name,
-                    "--path", str(test_dir),
-                    "--video-mode", "description",
-                    "--word-count", "20",
-                    "--output", "json"
-                ]
+                    "--type",
+                    "video",
+                    "--model",
+                    model_name,
+                    "--path",
+                    str(test_dir),
+                    "--video-mode",
+                    "description",
+                    "--word-count",
+                    "20",
+                    "--output",
+                    "json",
+                ],
             )
 
             # This will likely fail due to fake video files, but test CLI structure
             # The important thing is the CLI accepts the arguments correctly
             if result.exit_code != 0:
                 # Expected - fake video files will fail validation
-                assert "validation failed" in result.output or "No video streams found" in result.output or "does not exist" in result.output
+                assert (
+                    "validation failed" in result.output
+                    or "No video streams found" in result.output
+                    or "does not exist" in result.output
+                )
 
     def test_cli_video_help_display(self):
         """Test CLI help includes video options."""
         result = self.runner.invoke(main, ["--help"])
-        
+
         assert result.exit_code == 0
         assert "video" in result.output
         assert "--video-mode" in result.output

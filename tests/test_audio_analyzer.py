@@ -5,9 +5,9 @@ import numpy as np
 import pytest
 from pydub import AudioSegment
 
-from media_analyzer_cli.audio_analyzer import AudioAnalyzer
-from media_analyzer_cli.config import Config
-from media_analyzer_cli.utils.audio import (
+from multimodal_analyzer_cli.audio_analyzer import AudioAnalyzer
+from multimodal_analyzer_cli.config import Config
+from multimodal_analyzer_cli.utils.audio import (
     cleanup_temp_audio,
     get_audio_info,
     is_audio_file,
@@ -80,7 +80,7 @@ class TestAudioUtils:
             temp_path = Path(tmp_file.name)
             assert temp_path.exists()
             return temp_path
-    
+
     def test_create_test_audio_file(self):
         """Test creating a test audio file."""
         # Create and immediately clean up test file
@@ -283,7 +283,9 @@ class TestAudioAnalyzer:
 
             # Test must succeed - fail if API call failed
             if not result["success"]:
-                pytest.fail(f"Audio transcription failed: {result.get('error', 'Unknown error')}")
+                pytest.fail(
+                    f"Audio transcription failed: {result.get('error', 'Unknown error')}"
+                )
 
             assert "transcript" in result
             assert "audio_info" in result
@@ -314,7 +316,9 @@ class TestAudioAnalyzer:
 
             # Test must succeed - fail if API call failed
             if not result["success"]:
-                pytest.fail(f"Audio description analysis failed: {result.get('error', 'Unknown error')}")
+                pytest.fail(
+                    f"Audio description analysis failed: {result.get('error', 'Unknown error')}"
+                )
 
             assert "transcript" in result
             assert "analysis" in result
@@ -331,7 +335,9 @@ class TestAudioAnalyzer:
         """Test error handling for invalid analysis mode."""
         with pytest.raises(ValueError, match="Invalid mode"):
             await self.analyzer.analyze_single_audio(
-                model="gemini/gemini-2.5-flash", audio_path=self.test_audio_path, mode="invalid_mode"
+                model="gemini/gemini-2.5-flash",
+                audio_path=self.test_audio_path,
+                mode="invalid_mode",
             )
 
     @pytest.mark.asyncio
@@ -341,7 +347,9 @@ class TestAudioAnalyzer:
 
         with pytest.raises(ValueError, match="Audio file validation failed"):
             await self.analyzer.analyze_single_audio(
-                model="gemini/gemini-2.5-flash", audio_path=nonexistent_path, mode="transcript"
+                model="gemini/gemini-2.5-flash",
+                audio_path=nonexistent_path,
+                mode="transcript",
             )
 
     def test_output_formatting_json(self):
@@ -480,7 +488,9 @@ class TestAudioAnalyzer:
 
             # Test must succeed - fail if API call failed
             if not result["success"]:
-                pytest.fail(f"Real audio analysis failed: {result.get('error', 'Unknown error')}")
+                pytest.fail(
+                    f"Real audio analysis failed: {result.get('error', 'Unknown error')}"
+                )
 
             assert "transcript" in result
             assert "audio_info" in result
@@ -504,11 +514,17 @@ class TestAudioAnalyzer:
 
             # Test must succeed - fail if API call failed
             if not result["success"]:
-                pytest.fail(f"Video audio analysis failed: {result.get('error', 'Unknown error')}")
+                pytest.fail(
+                    f"Video audio analysis failed: {result.get('error', 'Unknown error')}"
+                )
 
             assert "transcript" in result
-            transcript = result.get('transcript', 'No transcript')
-            display_transcript = transcript[:100] + "..." if transcript and len(transcript) > 100 else transcript
+            transcript = result.get("transcript", "No transcript")
+            display_transcript = (
+                transcript[:100] + "..."
+                if transcript and len(transcript) > 100
+                else transcript
+            )
             print(f"Successfully analyzed video audio: {display_transcript}")
 
     def test_config_loading_with_audio_keys(self):

@@ -66,7 +66,7 @@ from .image_analyzer import ImageAnalyzer
     is_flag=True,
     help="Show detailed output including model, prompt, and metadata",
 )
-@click.version_option(package_name="media-analyzer")
+@click.version_option(package_name="multimodal-analyzer")
 def main(
     type: str,
     model: str,

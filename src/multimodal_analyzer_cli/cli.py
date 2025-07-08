@@ -73,7 +73,7 @@ from .video_analyzer import VideoAnalyzer
     is_flag=True,
     help="Show detailed output including model, prompt, and metadata",
 )
-@click.version_option(package_name="media-analyzer")
+@click.version_option(package_name="multimodal-analyzer")
 def main(
     type_: str,
     model: str,
@@ -94,7 +94,7 @@ def main(
     # Validate mode requirements
     if type_ == "audio" and not audio_mode:
         raise click.ClickException("--audio-mode is required when --type is 'audio'")
-    
+
     if type_ == "video" and not video_mode:
         raise click.ClickException("--video-mode is required when --type is 'video'")
 
@@ -102,17 +102,17 @@ def main(
         raise click.ClickException(
             "--audio-mode should not be used when --type is 'image'"
         )
-    
+
     if type_ == "image" and video_mode:
         raise click.ClickException(
             "--video-mode should not be used when --type is 'image'"
         )
-    
+
     if type_ == "audio" and video_mode:
         raise click.ClickException(
             "--video-mode should not be used when --type is 'audio'"
         )
-    
+
     if type_ == "video" and audio_mode:
         raise click.ClickException(
             "--audio-mode should not be used when --type is 'video'"

@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from media_analyzer_cli.config import Config
-from media_analyzer_cli.image_analyzer import ImageAnalyzer
+from multimodal_analyzer_cli.config import Config
+from multimodal_analyzer_cli.image_analyzer import ImageAnalyzer
 
 from .test_utils import (
     FileManager,
@@ -69,7 +69,9 @@ class TestImageAnalyzer:
             if len(parsed_result) > 0:
                 # Test must succeed - fail if API call failed
                 if not parsed_result[0].get("success", False):
-                    pytest.fail(f"Image analysis failed: {parsed_result[0].get('error', 'Unknown error')}")
+                    pytest.fail(
+                        f"Image analysis failed: {parsed_result[0].get('error', 'Unknown error')}"
+                    )
                 assert "image_path" in parsed_result[0]
                 assert "model" in parsed_result[0]
         except json.JSONDecodeError:
@@ -139,7 +141,9 @@ class TestImageAnalyzer:
                     for item in parsed_result:
                         # Test must succeed - fail if any API call failed
                         if not item.get("success", False):
-                            pytest.fail(f"Batch image analysis failed for {item.get('image_path', 'unknown')}: {item.get('error', 'Unknown error')}")
+                            pytest.fail(
+                                f"Batch image analysis failed for {item.get('image_path', 'unknown')}: {item.get('error', 'Unknown error')}"
+                            )
                         assert "image_path" in item
                         assert "model" in item
                         assert "success" in item

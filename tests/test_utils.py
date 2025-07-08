@@ -8,12 +8,12 @@ import pytest
 from PIL import Image
 from pydub import AudioSegment
 
-from media_analyzer_cli.config import Config
-from media_analyzer_cli.utils.video import (
-    find_videos, 
-    get_video_info, 
-    is_video_file, 
-    validate_video_file
+from multimodal_analyzer_cli.config import Config
+from multimodal_analyzer_cli.utils.video import (
+    find_videos,
+    get_video_info,
+    is_video_file,
+    validate_video_file,
 )
 
 
@@ -53,8 +53,6 @@ def create_test_image(width: int = 100, height: int = 100, color: str = "red") -
     temp_file = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
     img.save(temp_file.name, format="JPEG")
     return Path(temp_file.name)
-
-
 
 
 def cleanup_temp_file(file_path: Path):
@@ -98,7 +96,9 @@ def get_primary_image_model() -> str:
     """Get the primary image model for testing."""
     models = get_available_models()["image"]
     if not models:
-        pytest.fail("No image analysis models available. Set OPENAI_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY environment variable.")
+        pytest.fail(
+            "No image analysis models available. Set OPENAI_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY environment variable."
+        )
     return models[0]
 
 
@@ -106,7 +106,9 @@ def get_primary_audio_model() -> str:
     """Get the primary audio model for testing."""
     models = get_available_models()["audio_transcription"]
     if not models:
-        pytest.fail("No audio transcription models available. Set OPENAI_API_KEY or AZURE_OPENAI_KEY environment variable.")
+        pytest.fail(
+            "No audio transcription models available. Set OPENAI_API_KEY or AZURE_OPENAI_KEY environment variable."
+        )
     return models[0]
 
 
@@ -114,7 +116,9 @@ def get_primary_text_model() -> str:
     """Get the primary text analysis model for testing."""
     models = get_available_models()["text_analysis"]
     if not models:
-        pytest.fail("No text analysis models available. Set OPENAI_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY environment variable.")
+        pytest.fail(
+            "No text analysis models available. Set OPENAI_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY environment variable."
+        )
     return models[0]
 
 
@@ -123,7 +127,9 @@ def get_primary_video_model() -> str:
     config = Config.load()
     if config.gemini_api_key:
         return "gemini/gemini-2.5-flash"
-    pytest.fail("No video analysis models available. Set GEMINI_API_KEY environment variable.")
+    pytest.fail(
+        "No video analysis models available. Set GEMINI_API_KEY environment variable."
+    )
 
 
 def test_find_videos_recursive_with_real_files():
@@ -131,20 +137,20 @@ def test_find_videos_recursive_with_real_files():
     # Create a temporary directory structure
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
-        
+
         # Create subdirectories
         subdir1 = temp_path / "subdir1"
         subdir2 = temp_path / "subdir2"
         subdir1.mkdir()
         subdir2.mkdir()
-        
+
         # Create test video files
         (temp_path / "video1.mp4").touch()
         (temp_path / "video2.avi").touch()
         (subdir1 / "video3.mov").touch()
         (subdir2 / "video4.mkv").touch()
         (temp_path / "not_video.txt").touch()
-        
+
         # Test non-recursive search
         videos = list(find_videos(temp_path, recursive=False))
         video_names = [v.name for v in videos]
@@ -152,7 +158,7 @@ def test_find_videos_recursive_with_real_files():
         assert "video2.avi" in video_names
         assert "video3.mov" not in video_names  # Should not find in subdirs
         assert "video4.mkv" not in video_names
-        
+
         # Test recursive search
         videos_recursive = list(find_videos(temp_path, recursive=True))
         video_names_recursive = [v.name for v in videos_recursive]
@@ -169,16 +175,16 @@ def test_validate_video_file_fails_fast():
     non_existent = Path("/non/existent/video.mp4")
     with pytest.raises(FileNotFoundError):
         validate_video_file(non_existent)
-    
+
     # Test with unsupported format
     with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp:
         tmp.write(b"not a video")
         tmp.flush()
         unsupported_file = Path(tmp.name)
-        
+
         with pytest.raises(ValueError, match="Unsupported video format"):
             validate_video_file(unsupported_file)
-        
+
         unsupported_file.unlink()
 
 
@@ -187,7 +193,7 @@ def test_get_video_info_with_real_video():
     # This test requires a real video file to work properly
     # For now, we'll test the error handling
     test_video_path = get_test_video_path()
-    
+
     if not test_video_path.exists():
         # If no test video file exists, test error handling
         with pytest.raises(FileNotFoundError):
@@ -226,11 +232,11 @@ def test_is_video_file_format_detection():
     assert is_video_file(Path("test.flv"))
     assert is_video_file(Path("test.webm"))
     assert is_video_file(Path("test.m4v"))
-    
+
     # Test case insensitivity
     assert is_video_file(Path("test.MP4"))
     assert is_video_file(Path("test.AVI"))
-    
+
     # Test unsupported formats
     assert not is_video_file(Path("test.txt"))
     assert not is_video_file(Path("test.jpg"))
@@ -249,7 +255,6 @@ class FileManager:
         path = create_test_image(**kwargs)
         self.temp_files.append(path)
         return path
-
 
     def __enter__(self):
         return self
