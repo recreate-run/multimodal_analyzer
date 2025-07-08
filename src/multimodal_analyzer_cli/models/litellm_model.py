@@ -175,7 +175,7 @@ class LiteLLMModel:
     ) -> Any:
         """Call LiteLLM with retry logic."""
         return await asyncio.to_thread(
-            litellm.completion, model=model, messages=messages, timeout=timeout
+            litellm.completion, model=model, messages=messages, timeout=timeout, temperature=0
         )
 
     async def analyze_image(

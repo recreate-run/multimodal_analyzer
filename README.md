@@ -202,6 +202,37 @@ Options:
 
 **Note**: You must specify either `--path` OR `--files`, but not both. Use `--path` for directory processing and `--files` for explicit file lists.
 
+## Output Schema
+
+### JSON Output Format (Batch Mode)
+
+Results are returned as an array of objects, one per analyzed file:
+
+```json
+[
+  {
+    "image_path": "path/to/image.jpg",
+    "analysis": "AI-generated analysis text...",
+    "success": true
+  }
+]
+```
+
+### Error Handling
+
+Failed analyses include error details:
+
+```json
+[
+  {
+    "image_path": "path/to/image.jpg",
+    "analysis": null,
+    "success": false,
+    "error": "Error message"
+  }
+]
+```
+
 ## Development
 
 ### Running Tests
