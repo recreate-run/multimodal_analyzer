@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: multimodal-analyzer
-Version: 0.2.4
+Version: 0.2.5
 Summary: AI-powered media analysis tool for images, audio, and video using multiple LLM providers
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -18,7 +18,6 @@ Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: tenacity>=8.0.0
 Requires-Dist: tqdm>=4.66.0
 Requires-Dist: loguru>=0.7.2
-Requires-Dist: pandas>=2.0.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: nest-asyncio>=1.6.0
 Requires-Dist: ffmpeg-python>=0.2.0

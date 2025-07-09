@@ -3,8 +3,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-
 
 class OutputFormatter:
     """Handles different output formats for analysis results."""
@@ -63,33 +61,43 @@ class OutputFormatter:
         return "\n".join(md_content)
     
     @staticmethod
-    def format_csv(results: list[dict[str, Any]], verbose: bool = False) -> str:
-        """Format results as CSV."""
+    def format_text(results: list[dict[str, Any]], verbose: bool = False) -> str:
+        """Format results as plain text."""
         if not results:
-            if verbose:
-                return "image_path,model,prompt,word_count,success,analysis,error\n"
-            else:
-                return "image_path,success,analysis,error\n"
+            return "Image Analysis Results\n\nNo results found."
         
-        # Create DataFrame
-        df = pd.DataFrame(results)
+        text_content = ["Image Analysis Results"]
+        text_content.append("=" * 50)
         
         if verbose:
-            # Verbose mode: include all columns
-            required_columns = ["image_path", "model", "prompt", "word_count", "success", "analysis", "error"]
-        else:
-            # Non-verbose mode: only essential columns
-            required_columns = ["image_path", "success", "analysis", "error"]
+            text_content.append(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            text_content.append(f"Total Images: {len(results)}")
+            text_content.append("")
         
-        # Ensure all required columns exist
-        for col in required_columns:
-            if col not in df.columns:
-                df[col] = ""
+        for i, result in enumerate(results, 1):
+            text_content.append(f"Image {i}: {Path(result['image_path']).name}")
+            text_content.append(f"Path: {result['image_path']}")
+            
+            if verbose:
+                text_content.append(f"Model: {result.get('model', 'unknown')}")
+                if result.get("prompt"):
+                    text_content.append(f"Prompt: {result['prompt']}")
+                if result.get("word_count"):
+                    text_content.append(f"Word Count: {result['word_count']}")
+            
+            text_content.append("")
+            
+            if result["success"]:
+                text_content.append("Analysis:")
+                text_content.append(result["analysis"])
+            else:
+                text_content.append(f"Error: {result['error']}")
+            
+            text_content.append("")
+            text_content.append("-" * 50)
+            text_content.append("")
         
-        # Reorder columns
-        df = df[required_columns]
-        
-        return df.to_csv(index=False)
+        return "\n".join(text_content)
     
     @staticmethod
     def save_to_file(content: str, file_path: str) -> None:
@@ -106,7 +114,6 @@ class OutputFormatter:
         extensions = {
             "json": ".json",
             "markdown": ".md",
-            "csv": ".csv",
             "text": ".txt"
         }
         return extensions.get(format_type, ".txt")

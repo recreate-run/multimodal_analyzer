@@ -216,18 +216,3 @@ class TestImageAnalyzer:
         assert "test.jpg" in output
         assert "test analysis" in output
 
-    def test_format_output_csv(self):
-        """Test CSV output formatting."""
-        results = [
-            {
-                "image_path": "/test.jpg",
-                "model": "test-model",
-                "analysis": "test analysis",
-                "success": True,
-            }
-        ]
-
-        output = self.analyzer._format_output(results, "csv", verbose=True)
-        assert isinstance(output, str)
-        assert "/test.jpg" in output
-        assert "test analysis" in output

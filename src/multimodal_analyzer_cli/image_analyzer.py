@@ -206,7 +206,7 @@ class ImageAnalyzer:
             return OutputFormatter.format_json(results, verbose=verbose)
         elif output_format == "markdown":
             return OutputFormatter.format_markdown(results, verbose=verbose)
-        elif output_format == "csv":
-            return OutputFormatter.format_csv(results, verbose=verbose)
+        elif output_format == "text":
+            return OutputFormatter.format_text(results, verbose=verbose)
         else:
             raise ValueError(f"Unsupported output format: {output_format}")
