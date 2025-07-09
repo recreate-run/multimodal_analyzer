@@ -17,11 +17,12 @@ from tenacity import (
 from ..config import Config
 
 litellm.cache = Cache(type="disk", cache_dir="./.litellm_cache")
+litellm.drop_params = True # drop unsupported OpenAI params automatically
 
 
 class LiteLLMModel:
     """Unified interface for multiple LLM providers using LiteLLM."""
-    
+
     # Image preprocessing threshold in KB - images larger than this will be converted to JPEG
     IMAGE_PREPROCESSING_THRESHOLD_KB = 500
 
@@ -32,28 +33,28 @@ class LiteLLMModel:
         """Encode image to base64 string."""
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
-    
+
     def _preprocess_image(self, image_path: Path) -> Path:
         """Preprocess image if needed (convert to JPEG if > 500KB)."""
         # Check file size
         file_size = image_path.stat().st_size
         threshold_bytes = self.IMAGE_PREPROCESSING_THRESHOLD_KB * 1024
-        
+
         if file_size > threshold_bytes:
             logger.debug(f"Image {image_path.name} is {file_size} bytes (> {self.IMAGE_PREPROCESSING_THRESHOLD_KB}KB), converting to JPEG")
-            
+
             # Create a temporary path for the converted image
             temp_path = image_path.parent / f"{image_path.stem}_preprocessed.jpg"
-            
+
             # Convert to JPEG
             with Image.open(image_path) as img:
                 # Convert to RGB if needed (for transparency handling)
                 if img.mode in ("RGBA", "LA", "P"):
                     img = img.convert("RGB")
-                
+
                 # Save as JPEG with high quality
                 img.save(temp_path, "JPEG", quality=95)
-            
+
             logger.debug(f"Converted {image_path.name} to JPEG format: {temp_path.name}")
             return temp_path
         else:
@@ -199,7 +200,7 @@ class LiteLLMModel:
 
         # Preprocess image if needed (convert to JPEG if > 1KB)
         processed_image_path = self._preprocess_image(image_path)
-        
+
         try:
             # Encode image
             image_base64 = self._encode_image(processed_image_path)

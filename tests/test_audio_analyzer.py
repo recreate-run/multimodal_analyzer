@@ -531,7 +531,7 @@ class TestAudioAnalyzer:
         """Test configuration loading with audio-specific environment variables."""
         # Test that config loads audio-specific environment variables
         test_env = {
-            "AZURE_OPENAI_KEY": "test_azure_key",
+            "AZURE_OPENAI_API_KEY": "test_azure_key",
             "AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com/",
             "GEMINI_API_KEY": "test_gemini_key",
         }
@@ -542,7 +542,7 @@ class TestAudioAnalyzer:
 
             config = Config.load()
 
-            assert config.azure_openai_key == "test_azure_key"
+            assert config.AZURE_OPENAI_API_KEY == "test_azure_key"
             assert config.azure_openai_endpoint == "https://test.openai.azure.com/"
             assert config.gemini_api_key == "test_gemini_key"
 
@@ -550,7 +550,7 @@ class TestAudioAnalyzer:
         """Test API key selection logic for audio models."""
         # Create config with test keys
         config = Config()
-        config.azure_openai_key = "azure_key"
+        config.AZURE_OPENAI_API_KEY = "azure_key"
         config.openai_api_key = "openai_key"
         config.gemini_api_key = "gemini_key"
 
@@ -558,7 +558,7 @@ class TestAudioAnalyzer:
         assert config.get_api_key("gemini/gemini-2.5-flash") == "gemini_key"
 
         # Test with only Gemini key available
-        config.azure_openai_key = None
+        config.AZURE_OPENAI_API_KEY = None
         config.openai_api_key = None
         assert config.get_api_key("gemini/gemini-2.5-flash") == "gemini_key"
 

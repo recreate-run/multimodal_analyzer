@@ -52,7 +52,7 @@ uv run pytest -v
 At least one of these API keys is required:
 
 - `OPENAI_API_KEY` - For GPT-4V models
-- `AZURE_OPENAI_KEY` + `AZURE_OPENAI_ENDPOINT` - For Azure OpenAI
+- `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT` - For Azure OpenAI
 - `GEMINI_API_KEY` or `GEMINI_API_KEY` - For Gemini models
 - `ANTHROPIC_API_KEY` - For Claude models
 
@@ -60,7 +60,7 @@ At least one of these API keys is required:
 
 Required for audio transcription:
 
-- `OPENAI_API_KEY` or `AZURE_OPENAI_KEY` - For Whisper models
+- `OPENAI_API_KEY` or `AZURE_OPENAI_API_KEY` - For Whisper models
 
 latoi## Test Data
 

@@ -14,7 +14,7 @@ class Config:
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None
     gemini_api_key: str | None = None
-    azure_openai_key: str | None = None
+    AZURE_OPENAI_API_KEY: str | None = None
     azure_openai_endpoint: str | None = None
 
     # Default settings
@@ -42,12 +42,12 @@ class Config:
     timeout_seconds: int = 30
     max_audio_size_mb: int = 100
     max_video_size_mb: int = 2048  # 2GB default for Gemini 2.0
-    
+
     # Video specific settings
     supported_video_formats: list = field(
         default_factory=lambda: [
             ".mp4",
-            ".avi", 
+            ".avi",
             ".mov",
             ".mkv",
             ".wmv",
@@ -77,7 +77,7 @@ class Config:
             "OPENAI_API_KEY": "openai_api_key",
             "ANTHROPIC_API_KEY": "anthropic_api_key",
             "GEMINI_API_KEY": "gemini_api_key",
-            "AZURE_OPENAI_KEY": "azure_openai_key",
+            "AZURE_OPENAI_API_KEY": "AZURE_OPENAI_API_KEY",
             "AZURE_OPENAI_ENDPOINT": "azure_openai_endpoint",
             "DEFAULT_MODEL": "default_model",
             "DEFAULT_WORD_COUNT": "default_word_count",
@@ -111,7 +111,7 @@ class Config:
     def get_api_key(self, model: str) -> str | None:
         """Get appropriate API key for the given model."""
         if model.startswith("azure/"):
-            return self.azure_openai_key
+            return self.AZURE_OPENAI_API_KEY
         if (
             model.startswith("gpt-")
             or model.startswith("openai/")
@@ -127,8 +127,8 @@ class Config:
     def validate_api_keys(self, model: str) -> None:
         """Validate that required API key is present for the given model."""
         if model.startswith("azure/"):
-            if not self.azure_openai_key or self.azure_openai_key.strip() == "":
-                raise ValueError("AZURE_OPENAI_KEY environment variable is required for Azure models")
+            if not self.AZURE_OPENAI_API_KEY or self.AZURE_OPENAI_API_KEY.strip() == "":
+                raise ValueError("AZURE_OPENAI_API_KEY environment variable is required for Azure models")
             if not self.azure_openai_endpoint or self.azure_openai_endpoint.strip() == "":
                 raise ValueError("AZURE_OPENAI_ENDPOINT environment variable is required for Azure models")
             return

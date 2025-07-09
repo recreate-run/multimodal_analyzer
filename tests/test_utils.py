@@ -72,19 +72,19 @@ def get_available_models() -> dict:
     # Image models
     if config.gemini_api_key or config.gemini_api_key:
         models["image"].append("gemini/gemini-2.5-flash")
-    if config.openai_api_key or config.azure_openai_key:
+    if config.openai_api_key or config.AZURE_OPENAI_API_KEY:
         models["image"].append("gpt-4o-mini")
     if config.anthropic_api_key:
         models["image"].append("claude-3-sonnet-20240229")
 
     # Audio transcription models
-    if config.openai_api_key or config.azure_openai_key:
+    if config.openai_api_key or config.AZURE_OPENAI_API_KEY:
         models["audio_transcription"].append("whisper-1")
 
     # Text analysis models
     if config.gemini_api_key or config.gemini_api_key:
         models["text_analysis"].append("gemini/gemini-2.5-flash")
-    if config.openai_api_key or config.azure_openai_key:
+    if config.openai_api_key or config.AZURE_OPENAI_API_KEY:
         models["text_analysis"].append("gpt-4o-mini")
     if config.anthropic_api_key:
         models["text_analysis"].append("claude-3-sonnet-20240229")
@@ -107,7 +107,7 @@ def get_primary_audio_model() -> str:
     models = get_available_models()["audio_transcription"]
     if not models:
         pytest.fail(
-            "No audio transcription models available. Set OPENAI_API_KEY or AZURE_OPENAI_KEY environment variable."
+            "No audio transcription models available. Set OPENAI_API_KEY or AZURE_OPENAI_API_KEY environment variable."
         )
     return models[0]
 
