@@ -84,7 +84,7 @@ def get_concurrency_help() -> str:
 @click.option(
     "--log-level",
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
-    default="INFO",
+    default="WARNING",
     help="Logging level",
 )
 @click.option(
@@ -149,7 +149,7 @@ def main(
     # Configure logging
     logger.remove()
     logger.add(lambda msg: click.echo(msg, err=True), level=log_level)
-    
+
     # Enable LiteLLM verbose logging for DEBUG level
     if log_level == "DEBUG":
         litellm.set_verbose = True

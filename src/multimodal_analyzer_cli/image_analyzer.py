@@ -151,7 +151,6 @@ class ImageAnalyzer:
                         model, image_path, prompt, word_count
                     )
                     progress_bar.set_postfix(
-                        current=image_path.name,
                         status="✓" if result["success"] else "✗",
                     )
                     return result
@@ -160,7 +159,7 @@ class ImageAnalyzer:
 
         # Create progress bar
         progress_bar = tqdm(
-            total=len(image_paths), desc="Analyzing images", unit="img", colour="green"
+            total=len(image_paths), desc="Analyzing images", unit="img", colour="green", disable=False
         )
 
         try:

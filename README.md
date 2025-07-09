@@ -32,6 +32,10 @@ cd multimodal-analyzer
 uv sync
 ```
 
+Reinstall
+```
+uv tool install --reinstall .
+```
 ## Hybrid File Input Support
 
 The Media Analyzer CLI supports two flexible input modes:

@@ -1,3 +1,4 @@
+MANIFEST.in
 README.md
 pyproject.toml
 src/multimodal_analyzer.egg-info/PKG-INFO
@@ -14,6 +15,9 @@ src/multimodal_analyzer_cli/image_analyzer.py
 src/multimodal_analyzer_cli/video_analyzer.py
 src/multimodal_analyzer_cli/models/__init__.py
 src/multimodal_analyzer_cli/models/litellm_model.py
+src/multimodal_analyzer_cli/prompts/audio_system_prompt.md
+src/multimodal_analyzer_cli/prompts/image_system_prompt.md
+src/multimodal_analyzer_cli/prompts/video_system_prompt.md
 src/multimodal_analyzer_cli/utils/__init__.py
 src/multimodal_analyzer_cli/utils/audio.py
 src/multimodal_analyzer_cli/utils/file_discovery.py

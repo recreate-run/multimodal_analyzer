@@ -35,6 +35,9 @@ dependencies = [
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.package-data]
+multimodal_analyzer_cli = ["prompts/*.md"]
+
 [project.scripts]
 multimodal-analyzer = "multimodal_analyzer_cli.cli:main"
 
