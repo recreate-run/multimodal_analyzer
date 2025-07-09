@@ -160,7 +160,7 @@ class ImageAnalyzer:
 
         # Create progress bar
         progress_bar = tqdm(
-            total=len(image_paths), desc="Analyzing images", unit="img", colour="green"
+            total=len(image_paths), desc="Analyzing images", unit="img", colour="green", disable=False
         )
 
         try:
