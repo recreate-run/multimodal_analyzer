@@ -7,8 +7,8 @@ from tqdm.asyncio import tqdm
 
 from .config import Config
 from .models.litellm_model import LiteLLMModel
-from .utils.image import find_images
 from .utils.file_discovery import validate_file_list
+from .utils.image import find_images
 from .utils.output import OutputFormatter
 from .utils.prompts import PromptManager
 
@@ -16,9 +16,9 @@ from .utils.prompts import PromptManager
 class ImageAnalyzer:
     """Core image analysis functionality."""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, custom_system_prompt: str | None = None):
         self.config = config
-        self.model = LiteLLMModel(config)
+        self.model = LiteLLMModel(config, custom_system_prompt)
 
     async def analyze(
         self,

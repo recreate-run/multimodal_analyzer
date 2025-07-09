@@ -16,6 +16,47 @@ from tenacity import (
 
 from ..config import Config
 
+
+class SystemPromptLoader:
+    """Manages loading and caching of system prompts for different media types."""
+    
+    _cache = {}
+    
+    @classmethod
+    def load_system_prompt(cls, media_type: str, custom_prompt_path: str | None = None) -> str:
+        """Load system prompt for the specified media type.
+        
+        Args:
+            media_type: Type of media (image, audio, video)
+            custom_prompt_path: Optional path to custom system prompt file
+            
+        Returns:
+            System prompt content as string
+        """
+        if custom_prompt_path:
+            return cls._load_from_file(custom_prompt_path)
+        
+        if media_type not in cls._cache:
+            prompt_file = Path(__file__).parent.parent / "prompts" / f"{media_type}_system_prompt.md"
+            cls._cache[media_type] = cls._load_from_file(prompt_file)
+        
+        return cls._cache[media_type]
+    
+    @classmethod
+    def _load_from_file(cls, file_path: Path | str) -> str:
+        """Load system prompt from file."""
+        file_path = Path(file_path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"System prompt file not found: {file_path}")
+        
+        with open(file_path, encoding="utf-8") as f:
+            content = f.read().strip()
+        
+        if not content:
+            raise ValueError(f"System prompt file is empty: {file_path}")
+        
+        return content
+
 litellm.cache = Cache(type="disk", cache_dir="./.litellm_cache")
 litellm.drop_params = True # drop unsupported OpenAI params automatically
 
@@ -26,8 +67,9 @@ class LiteLLMModel:
     # Image preprocessing threshold in KB - images larger than this will be converted to JPEG
     IMAGE_PREPROCESSING_THRESHOLD_KB = 500
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, custom_system_prompt: str | None = None):
         self.config = config
+        self.custom_system_prompt = custom_system_prompt
 
     def _encode_image(self, image_path: Path) -> str:
         """Encode image to base64 string."""
@@ -205,11 +247,17 @@ class LiteLLMModel:
             # Encode image
             image_base64 = self._encode_image(processed_image_path)
 
+            # Load system prompt
+            system_prompt = SystemPromptLoader.load_system_prompt(
+                "image", self.custom_system_prompt
+            )
+
             # Prepare the full prompt
             full_prompt = f"{prompt} Please provide approximately {word_count} words in your description."
 
-            # Prepare messages for vision models
+            # Prepare messages for vision models with system prompt
             messages = [
+                {"role": "system", "content": system_prompt},
                 {
                     "role": "user",
                     "content": [
@@ -282,6 +330,11 @@ class LiteLLMModel:
         }
         mime_type = mime_types.get(audio_path.suffix.lower(), "audio/mpeg")
 
+        # Load system prompt
+        system_prompt = SystemPromptLoader.load_system_prompt(
+            "audio", self.custom_system_prompt
+        )
+
         # Prepare prompt based on mode
         if mode == "transcript":
             full_prompt = (
@@ -297,6 +350,7 @@ class LiteLLMModel:
 
         # Prepare messages for Gemini with audio content
         messages = [
+            {"role": "system", "content": system_prompt},
             {
                 "role": "user",
                 "content": [
@@ -384,6 +438,11 @@ class LiteLLMModel:
                 f"Invalid mode: {mode}. Video analysis only supports 'description' mode"
             )
 
+        # Load system prompt
+        system_prompt = SystemPromptLoader.load_system_prompt(
+            "video", self.custom_system_prompt
+        )
+
         # Prepare prompt for description mode
         if prompt:
             full_prompt = f"{prompt}\n\nPlease analyze this video content including both visual and audio elements. Provide approximately {word_count} words in your analysis."
@@ -392,6 +451,7 @@ class LiteLLMModel:
 
         # Prepare messages for Gemini with video content
         messages = [
+            {"role": "system", "content": system_prompt},
             {
                 "role": "user",
                 "content": [
@@ -453,6 +513,11 @@ class LiteLLMModel:
             elif model.startswith("gemini") or model.startswith("google/"):
                 litellm.google_key = api_key
 
+        # Load system prompt
+        system_prompt = SystemPromptLoader.load_system_prompt(
+            "audio", self.custom_system_prompt
+        )
+
         # Prepare the analysis prompt
         if prompt:
             full_prompt = f"{prompt}\n\nTranscript to analyze:\n{transcript}\n\nPlease provide approximately {word_count} words in your analysis."
@@ -460,7 +525,10 @@ class LiteLLMModel:
             full_prompt = f"Please analyze and describe the following audio transcript. Provide approximately {word_count} words in your analysis.\n\nTranscript:\n{transcript}"
 
         # Prepare messages for the model
-        messages = [{"role": "user", "content": full_prompt}]
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": full_prompt}
+        ]
 
         # Call LiteLLM with retry logic - raise exceptions immediately
         response = await self._call_litellm_with_retry(

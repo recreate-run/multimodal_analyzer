@@ -24,9 +24,9 @@ from .utils.prompts import get_default_audio_prompt
 class AudioAnalyzer:
     """Audio analysis using LiteLLM models."""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, custom_system_prompt: str | None = None):
         self.config = config
-        self.model = LiteLLMModel(config)
+        self.model = LiteLLMModel(config, custom_system_prompt)
         self.output_formatter = OutputFormatter()
 
     async def analyze_single_audio(

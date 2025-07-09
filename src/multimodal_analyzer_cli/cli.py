@@ -61,9 +61,14 @@ def get_concurrency_help() -> str:
     "--word-count",
     "-w",
     default=100,
-    help="Target description word count (for image, audio description, or video description mode)",
+    help="Target description word count",
 )
 @click.option("--prompt", help="Custom analysis prompt")
+@click.option(
+    "--system",
+    type=click.Path(exists=True),
+    help="Path to custom system prompt file (overrides default for media type)"
+)
 @click.option(
     "--output",
     "-o",
@@ -98,6 +103,7 @@ def main(
     video_mode: str | None,
     word_count: int,
     prompt: str | None,
+    system: str | None,
     output: str,
     output_file: str | None,
     recursive: bool,
@@ -159,7 +165,7 @@ def main(
 
     # Create appropriate analyzer
     if type_ == "image":
-        analyzer = ImageAnalyzer(config)
+        analyzer = ImageAnalyzer(config, system)
 
         # Run image analysis
         try:
@@ -186,7 +192,7 @@ def main(
             raise click.ClickException(str(e))
 
     elif type_ == "audio":
-        analyzer = AudioAnalyzer(config)
+        analyzer = AudioAnalyzer(config, system)
 
         # Run audio analysis
         try:
@@ -214,7 +220,7 @@ def main(
             raise click.ClickException(str(e))
 
     elif type_ == "video":
-        analyzer = VideoAnalyzer(config)
+        analyzer = VideoAnalyzer(config, system)
 
         # Run video analysis
         try:

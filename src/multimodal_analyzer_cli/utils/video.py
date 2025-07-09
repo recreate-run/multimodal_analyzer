@@ -1,6 +1,5 @@
 """Video utilities for media analyzer."""
 
-import subprocess
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any
@@ -49,8 +48,8 @@ def validate_video_file(video_path: Path) -> bool:
         probe = ffmpeg.probe(str(video_path))
         
         # Check if file has video streams
-        video_streams = [stream for stream in probe.get('streams', []) 
-                        if stream.get('codec_type') == 'video']
+        video_streams = [stream for stream in probe.get("streams", []) 
+                        if stream.get("codec_type") == "video"]
         
         if not video_streams:
             raise ValueError(f"No video streams found in {video_path}")
@@ -71,19 +70,19 @@ def get_video_info(video_path: Path) -> dict[str, Any]:
         probe = ffmpeg.probe(str(video_path))
         
         # Get video stream info
-        video_streams = [stream for stream in probe.get('streams', []) 
-                        if stream.get('codec_type') == 'video']
-        audio_streams = [stream for stream in probe.get('streams', []) 
-                        if stream.get('codec_type') == 'audio']
+        video_streams = [stream for stream in probe.get("streams", []) 
+                        if stream.get("codec_type") == "video"]
+        audio_streams = [stream for stream in probe.get("streams", []) 
+                        if stream.get("codec_type") == "audio"]
         
         if not video_streams:
             raise ValueError(f"No video streams found in {video_path}")
         
         video_stream = video_streams[0]
-        format_info = probe.get('format', {})
+        format_info = probe.get("format", {})
         
         # Calculate duration
-        duration_seconds = float(format_info.get('duration', 0))
+        duration_seconds = float(format_info.get("duration", 0))
         duration_minutes = duration_seconds / 60.0
         
         # Get file size
@@ -91,16 +90,16 @@ def get_video_info(video_path: Path) -> dict[str, Any]:
         
         return {
             "path": str(video_path),
-            "format": format_info.get('format_name', 'unknown'),
+            "format": format_info.get("format_name", "unknown"),
             "duration_seconds": duration_seconds,
             "duration_minutes": duration_minutes,
             "file_size_mb": round(file_size_mb, 2),
-            "width": int(video_stream.get('width', 0)),
-            "height": int(video_stream.get('height', 0)),
-            "fps": eval(video_stream.get('r_frame_rate', '0/1')),
-            "video_codec": video_stream.get('codec_name', 'unknown'),
-            "audio_codec": audio_streams[0].get('codec_name', 'none') if audio_streams else 'none',
-            "bitrate": int(format_info.get('bit_rate', 0)),
+            "width": int(video_stream.get("width", 0)),
+            "height": int(video_stream.get("height", 0)),
+            "fps": eval(video_stream.get("r_frame_rate", "0/1")),
+            "video_codec": video_stream.get("codec_name", "unknown"),
+            "audio_codec": audio_streams[0].get("codec_name", "none") if audio_streams else "none",
+            "bitrate": int(format_info.get("bit_rate", 0)),
             "has_audio": len(audio_streams) > 0,
             "video_streams": len(video_streams),
             "audio_streams": len(audio_streams)

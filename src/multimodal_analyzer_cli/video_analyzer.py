@@ -9,17 +9,17 @@ from tqdm.asyncio import tqdm
 
 from .config import Config
 from .models.litellm_model import LiteLLMModel
+from .utils.file_discovery import validate_file_list
 from .utils.output import OutputFormatter
 from .utils.video import find_videos, get_video_info, validate_video_file
-from .utils.file_discovery import validate_file_list
 
 
 class VideoAnalyzer:
     """Video analysis using Gemini models with multimodal capabilities."""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, custom_system_prompt: str | None = None):
         self.config = config
-        self.model = LiteLLMModel(config)
+        self.model = LiteLLMModel(config, custom_system_prompt)
         self.output_formatter = OutputFormatter()
 
     async def analyze_single_video(
