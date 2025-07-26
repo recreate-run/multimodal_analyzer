@@ -72,9 +72,14 @@ def get_concurrency_help() -> str:
 @click.option(
     "--output",
     "-o",
-    type=click.Choice(["json", "markdown", "text"]),
+    type=click.Choice(["json", "markdown", "text", "stream-json"]),
     default="json",
     help="Output format",
+)
+@click.option(
+    "--input-format",
+    type=click.Choice(["stream-json"]),
+    help="Input format for streaming mode (requires --output stream-json and -p)",
 )
 @click.option("--output-file", help="Save results to file")
 @click.option("--recursive", "-r", is_flag=True, help="Process directories recursively")
@@ -105,6 +110,7 @@ def main(
     prompt: str | None,
     system: str | None,
     output: str,
+    input_format: str | None,
     output_file: str | None,
     recursive: bool,
     concurrency: int,
@@ -116,7 +122,23 @@ def main(
     # Validate mutually exclusive options
     if path and files:
         raise click.ClickException("Cannot specify both --path and --files")
-    if not path and not files:
+    
+    # Validate streaming mode requirements
+    if input_format == "stream-json":
+        if output != "stream-json":
+            raise click.ClickException("--input-format stream-json requires --output stream-json")
+        if not path:
+            raise click.ClickException("--input-format stream-json requires -p flag")
+        if files:
+            raise click.ClickException("--input-format stream-json cannot be used with --files")
+        if output_file:
+            raise click.ClickException("--input-format stream-json cannot be used with --output-file")
+    
+    if output == "stream-json" and not input_format:
+        raise click.ClickException("--output stream-json requires --input-format stream-json")
+    
+    # Standard validation for non-streaming mode
+    if not input_format and not path and not files:
         raise click.ClickException("Must specify either --path or --files")
 
     # Validate mode requirements
@@ -163,7 +185,32 @@ def main(
             f"Concurrency value {concurrency} exceeds maximum limit of {config.max_concurrency}"
         )
 
-    # Create appropriate analyzer
+    # Check for streaming mode
+    if input_format == "stream-json":
+        # Handle streaming mode
+        if type_ == "image":
+            analyzer = ImageAnalyzer(config, system)
+            try:
+                asyncio.run(
+                    analyzer.analyze_streaming(
+                        model=model,
+                        word_count=word_count,
+                        prompt=prompt,
+                        verbose=verbose,
+                    )
+                )
+            except Exception as e:
+                logger.error(f"Streaming image analysis failed: {e}")
+                raise click.ClickException(str(e))
+        elif type_ == "audio":
+            # TODO: Implement audio streaming analysis
+            raise click.ClickException("Audio streaming analysis not yet implemented")
+        elif type_ == "video":
+            # TODO: Implement video streaming analysis
+            raise click.ClickException("Video streaming analysis not yet implemented")
+        return
+
+    # Create appropriate analyzer for regular (non-streaming) mode
     if type_ == "image":
         analyzer = ImageAnalyzer(config, system)
 

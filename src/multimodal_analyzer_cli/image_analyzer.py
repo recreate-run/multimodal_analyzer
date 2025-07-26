@@ -1,4 +1,5 @@
 import asyncio
+import base64
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ from .utils.file_discovery import validate_file_list
 from .utils.image import find_images
 from .utils.output import OutputFormatter
 from .utils.prompts import PromptManager
+from .utils.streaming import StreamingInputReader, StreamingOutputWriter, MessageExtractor
 
 
 class ImageAnalyzer:
@@ -30,7 +32,7 @@ class ImageAnalyzer:
         output_format: str = "json",
         output_file: str | None = None,
         recursive: bool = False,
-        concurrency: int = 3,
+        concurrency: int = 10,
         verbose: bool = False,
     ) -> str:
         """Analyze image(s) and return results."""
@@ -83,6 +85,150 @@ class ImageAnalyzer:
             logger.info(f"Results saved to {output_file}")
 
         return formatted_output
+
+    async def analyze_streaming(
+        self,
+        model: str,
+        word_count: int = 100,
+        prompt: str | None = None,
+        verbose: bool = False,
+    ) -> None:
+        """Analyze images in streaming mode, reading JSONL from stdin and responding immediately."""
+        
+        # Validate configuration
+        self.config.validate()
+        
+        # Initialize conversation context
+        conversation_history = []
+        
+        # Add system prompt to conversation
+        from .models.litellm_model import SystemPromptLoader
+        system_prompt = SystemPromptLoader.load_system_prompt("image", self.model.custom_system_prompt)
+        conversation_history.append({"role": "system", "content": system_prompt})
+        
+        logger.info(f"Starting streaming image analysis with model {model}")
+        
+        try:
+            # Read messages from stdin
+            async for message in StreamingInputReader.read_messages():
+                try:
+                    # Extract text prompt from message
+                    text_prompt = MessageExtractor.extract_text_prompt(message)
+                    
+                    # Use custom prompt if provided, otherwise use extracted text
+                    analysis_prompt = prompt or text_prompt
+                    analysis_prompt = PromptManager.add_word_count_instruction(
+                        analysis_prompt, word_count
+                    )
+                    
+                    # Check if message contains media content
+                    media_content = MessageExtractor.extract_media_content(message)
+                    
+                    if not media_content:
+                        # No media content - respond with error
+                        StreamingOutputWriter.write_error(
+                            "No image content found in message. Please include an image for analysis.",
+                            model=model
+                        )
+                        continue
+                    
+                    # Process image content
+                    for media_item in media_content:
+                        if media_item["type"] == "image_url":
+                            image_url = media_item["image_url"]["url"]
+                            
+                            # Handle base64 images
+                            if image_url.startswith("data:image/"):
+                                # Extract base64 data
+                                try:
+                                    result = await self._analyze_image_from_base64(
+                                        model, image_url, analysis_prompt, word_count
+                                    )
+                                    
+                                    # Send successful response
+                                    StreamingOutputWriter.write_response(
+                                        content=result["analysis"],
+                                        success=True,
+                                        model=model
+                                    )
+                                    
+                                    # Add to conversation history
+                                    conversation_history.append(message["message"])
+                                    conversation_history.append({
+                                        "role": "assistant",
+                                        "content": result["analysis"]
+                                    })
+                                    
+                                except Exception as e:
+                                    logger.error(f"Error analyzing image: {e}")
+                                    StreamingOutputWriter.write_error(
+                                        f"Error analyzing image: {str(e)}",
+                                        model=model
+                                    )
+                            else:
+                                StreamingOutputWriter.write_error(
+                                    "Only base64 encoded images are supported in streaming mode",
+                                    model=model
+                                )
+                        else:
+                            StreamingOutputWriter.write_error(
+                                f"Unsupported media type: {media_item['type']}",
+                                model=model
+                            )
+                    
+                except Exception as e:
+                    logger.error(f"Error processing message: {e}")
+                    StreamingOutputWriter.write_error(
+                        f"Error processing message: {str(e)}",
+                        model=model
+                    )
+                    
+        except KeyboardInterrupt:
+            logger.info("Streaming analysis interrupted by user")
+        except Exception as e:
+            logger.error(f"Streaming analysis failed: {e}")
+            StreamingOutputWriter.write_error(
+                f"Streaming analysis failed: {str(e)}",
+                model=model
+            )
+
+    async def _analyze_image_from_base64(
+        self, model: str, image_data_url: str, prompt: str, word_count: int
+    ) -> dict[str, Any]:
+        """Analyze an image from base64 data URL."""
+        
+        # Extract base64 data from data URL
+        if not image_data_url.startswith("data:image/"):
+            raise ValueError("Invalid image data URL format")
+        
+        # Parse data URL: data:image/jpeg;base64,<data>
+        header, data = image_data_url.split(",", 1)
+        image_base64 = data
+        
+        # Create a temporary file from base64 data
+        import tempfile
+        from PIL import Image
+        import io
+        
+        # Decode base64 to bytes
+        image_bytes = base64.b64decode(image_base64)
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
+            temp_path = Path(temp_file.name)
+            
+            # Validate it's a real image by opening with PIL
+            image = Image.open(io.BytesIO(image_bytes))
+            image.save(temp_file, format="JPEG")
+        
+        try:
+            # Use the existing analyze_single_image method
+            result = await self._analyze_single_image(model, temp_path, prompt, word_count)
+            return result
+        finally:
+            # Clean up temporary file
+            if temp_path.exists():
+                temp_path.unlink()
 
     async def _analyze_single_image(
         self, model: str, image_path: Path, prompt: str, word_count: int
