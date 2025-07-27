@@ -27,11 +27,13 @@ def get_concurrency_help() -> str:
     "type_",
     "-t",
     type=click.Choice(["image", "audio", "video"]),
+    required=True,
     help="Analysis type: image, audio, or video",
 )
 @click.option(
     "--model",
     "-m",
+    required=True,
     help="LiteLLM model (e.g., gemini/gemini-2.5-flash, gpt-4o-mini)",
 )
 @click.option(
@@ -122,12 +124,6 @@ def main(
     # If a subcommand was invoked, return early
     if ctx.invoked_subcommand is not None:
         return
-
-    # For the main analysis command, type and model are required
-    if not type_:
-        raise click.ClickException("--type is required for analysis")
-    if not model:
-        raise click.ClickException("--model is required for analysis")
 
     # Validate mutually exclusive options
     if path and files:
@@ -308,7 +304,6 @@ def main(
 @main.group()
 def auth() -> None:
     """Authentication management commands."""
-    pass
 
 
 @auth.command()
@@ -408,15 +403,15 @@ def status(verbose: bool) -> None:
         click.echo(f"  Auth Method: {status_info['auth_method']}")
         
         if verbose:
-            oauth_details = status_info.get('oauth_details', {})
+            oauth_details = status_info.get("oauth_details", {})
             
-            if 'expires_at' in oauth_details:
+            if "expires_at" in oauth_details:
                 click.echo(f"  Token Expires: {oauth_details['expires_at']}")
-            if 'has_refresh_token' in oauth_details:
+            if "has_refresh_token" in oauth_details:
                 click.echo(f"  Has Refresh Token: {'✅' if oauth_details['has_refresh_token'] else '❌'}")
         
         # Show usage instructions if not authenticated
-        if not status_info['authenticated']:
+        if not status_info["authenticated"]:
             click.echo("\n💡 To authenticate:")
             click.echo("  Run: multimodal-analyzer auth login")
             click.echo("  Or set GEMINI_API_KEY environment variable")

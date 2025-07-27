@@ -144,6 +144,15 @@ class Config:
             else:
                 raise ValueError(f"No API key available for model: {model}")
 
+    @property
+    def google_oauth_enabled(self) -> bool:
+        """Check if Google OAuth authentication is currently enabled/active."""
+        if not self.google_auth_provider:
+            return False
+        
+        auth_status = self.google_auth_provider.get_auth_status()
+        return auth_status.get("oauth_authenticated", False)
+
     def validate(self) -> None:
         """Validate configuration settings."""
         if self.max_concurrency < 1:

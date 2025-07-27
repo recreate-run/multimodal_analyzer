@@ -4,9 +4,8 @@ Secure token storage for OAuth credentials.
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger
 
@@ -14,7 +13,7 @@ from loguru import logger
 class TokenStorage:
     """Handles secure storage and retrieval of OAuth tokens."""
 
-    def __init__(self, token_path: Optional[Path] = None) -> None:
+    def __init__(self, token_path: Path | None = None) -> None:
         """
         Initialize token storage.
         
@@ -52,7 +51,7 @@ class TokenStorage:
             logger.error(f"Failed to store OAuth tokens: {e}")
             raise
 
-    def load_tokens(self) -> Optional[dict]:
+    def load_tokens(self) -> dict | None:
         """
         Load stored OAuth tokens.
         
@@ -64,7 +63,7 @@ class TokenStorage:
                 logger.debug("No stored OAuth tokens found")
                 return None
             
-            with open(self.token_path, "r") as f:
+            with open(self.token_path) as f:
                 tokens = json.load(f)
             
             logger.debug(f"Loaded OAuth tokens from {self.token_path}")
@@ -84,7 +83,7 @@ class TokenStorage:
             logger.error(f"Failed to clear OAuth tokens: {e}")
             raise
 
-    def is_token_valid(self, tokens: Optional[dict] = None) -> bool:
+    def is_token_valid(self, tokens: dict | None = None) -> bool:
         """
         Check if stored tokens are valid (not expired).
         
@@ -108,10 +107,10 @@ class TokenStorage:
         if "expires_at" in tokens:
             try:
                 expires_at = datetime.fromisoformat(tokens["expires_at"])
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 
                 # Add 5-minute buffer before expiration
-                if expires_at <= now.replace(tzinfo=timezone.utc):
+                if expires_at <= now.replace(tzinfo=UTC):
                     logger.debug("OAuth token is expired")
                     return False
                     
@@ -121,7 +120,7 @@ class TokenStorage:
         
         return True
 
-    def get_access_token(self) -> Optional[str]:
+    def get_access_token(self) -> str | None:
         """
         Get a valid access token.
         
@@ -133,7 +132,7 @@ class TokenStorage:
             return tokens["access_token"]
         return None
 
-    def update_access_token(self, access_token: str, expires_in: Optional[int] = None) -> None:
+    def update_access_token(self, access_token: str, expires_in: int | None = None) -> None:
         """
         Update just the access token (useful for token refresh).
         
@@ -145,7 +144,7 @@ class TokenStorage:
         tokens["access_token"] = access_token
         
         if expires_in:
-            expires_at = datetime.now(timezone.utc).timestamp() + expires_in
-            tokens["expires_at"] = datetime.fromtimestamp(expires_at, timezone.utc).isoformat()
+            expires_at = datetime.now(UTC).timestamp() + expires_in
+            tokens["expires_at"] = datetime.fromtimestamp(expires_at, UTC).isoformat()
         
         self.store_tokens(tokens)

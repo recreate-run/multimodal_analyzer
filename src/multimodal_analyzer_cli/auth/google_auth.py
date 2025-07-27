@@ -3,7 +3,6 @@ Google-specific authentication integration for multimodal analyzer.
 """
 
 import os
-from typing import Optional
 
 from loguru import logger
 
@@ -15,7 +14,7 @@ class GoogleAuthProvider:
     
     def __init__(self, 
                  callback_host: str = "localhost", 
-                 callback_port: Optional[int] = None) -> None:
+                 callback_port: int | None = None) -> None:
         """
         Initialize Google authentication provider.
         
@@ -47,7 +46,7 @@ class GoogleAuthProvider:
             callback_port=callback_port
         )
     
-    def get_auth_token(self) -> Optional[str]:
+    def get_auth_token(self) -> str | None:
         """
         Get authentication token for Google/Gemini models using cascade authentication.
         

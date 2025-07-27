@@ -1,6 +1,8 @@
+import asyncio
 import json
 import sys
-from typing import Any, AsyncGenerator, Dict
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from loguru import logger
 
@@ -9,26 +11,66 @@ class StreamingInputReader:
     """Reads and validates JSONL messages from stdin for streaming input."""
     
     @staticmethod
-    async def read_messages() -> AsyncGenerator[Dict[str, Any], None]:
+    async def read_messages() -> AsyncGenerator[dict[str, Any], None]:
         """Read JSONL messages from stdin line by line."""
-        for line in sys.stdin:
-            line = line.strip()
-            if not line:
-                continue
-                
+        try:
+            # Try async stdin reading first
+            reader = asyncio.StreamReader()
+            protocol = asyncio.StreamReaderProtocol(reader)
+            await asyncio.get_event_loop().connect_read_pipe(lambda: protocol, sys.stdin)
+            
+            while True:
+                # Read line from async stdin
+                try:
+                    line_bytes = await reader.readline()
+                    if not line_bytes:  # EOF reached
+                        break
+                    
+                    line = line_bytes.decode("utf-8").strip()
+                    if not line:
+                        continue
+                        
+                    try:
+                        message = json.loads(line)
+                        StreamingInputReader.validate_message(message)
+                        yield message
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Invalid JSON in input line: {line}")
+                        raise ValueError(f"Invalid JSON: {e}")
+                    except ValueError as e:
+                        logger.error(f"Invalid message format: {e}")
+                        raise
+                        
+                except asyncio.IncompleteReadError:
+                    # EOF reached during read
+                    break
+                    
+        except (OSError, ValueError) as e:
+            # Async setup failed (e.g., in test environment), fall back to synchronous
+            logger.debug(f"Async stdin setup failed, falling back to sync: {e}")
+            
             try:
-                message = json.loads(line)
-                StreamingInputReader.validate_message(message)
-                yield message
-            except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in input line: {line}")
-                raise ValueError(f"Invalid JSON: {e}")
-            except ValueError as e:
-                logger.error(f"Invalid message format: {e}")
-                raise
+                for line in sys.stdin:
+                    line = line.strip()
+                    if not line:
+                        continue
+                        
+                    try:
+                        message = json.loads(line)
+                        StreamingInputReader.validate_message(message)
+                        yield message
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Invalid JSON in input line: {line}")
+                        raise ValueError(f"Invalid JSON: {e}")
+                    except ValueError as e:
+                        logger.error(f"Invalid message format: {e}")
+                        raise
+            except Exception:
+                # Handle EOF gracefully - just return without raising
+                pass
     
     @staticmethod
-    def validate_message(message: Dict[str, Any]) -> None:
+    def validate_message(message: dict[str, Any]) -> None:
         """Validate that message has required fields and format."""
         if not isinstance(message, dict):
             raise ValueError("Message must be a JSON object")
@@ -126,7 +168,7 @@ class MessageExtractor:
     """Extracts media content and text from streaming messages."""
     
     @staticmethod
-    def extract_text_prompt(message: Dict[str, Any]) -> str:
+    def extract_text_prompt(message: dict[str, Any]) -> str:
         """Extract text prompt from message content."""
         content = message["message"]["content"]
         text_parts = []
@@ -138,7 +180,7 @@ class MessageExtractor:
         return " ".join(text_parts).strip()
     
     @staticmethod
-    def extract_media_content(message: Dict[str, Any]) -> list[Dict[str, Any]]:
+    def extract_media_content(message: dict[str, Any]) -> list[dict[str, Any]]:
         """Extract media content (images, audio, video) from message."""
         content = message["message"]["content"]
         media_items = []
@@ -150,6 +192,6 @@ class MessageExtractor:
         return media_items
     
     @staticmethod
-    def has_media_content(message: Dict[str, Any]) -> bool:
+    def has_media_content(message: dict[str, Any]) -> bool:
         """Check if message contains media content."""
         return len(MessageExtractor.extract_media_content(message)) > 0

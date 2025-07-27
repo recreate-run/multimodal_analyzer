@@ -155,9 +155,15 @@ class TestStreaming:
         
         for line in output_lines:
             try:
-                if line.startswith('{"type":"assistant"'):
-                    json_response = json.loads(line)
-                    break
+                # Try to parse any line that looks like JSON
+                line = line.strip()
+                if line.startswith('{') and line.endswith('}'):
+                    parsed = json.loads(line)
+                    # Look for assistant response with success=True
+                    if (parsed.get("type") == "assistant" and 
+                        parsed.get("metadata", {}).get("success") is True):
+                        json_response = parsed
+                        break
             except json.JSONDecodeError:
                 continue
         

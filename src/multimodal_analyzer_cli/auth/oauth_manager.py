@@ -9,18 +9,14 @@ import secrets
 import socket
 import urllib.parse
 import webbrowser
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
 import requests
-from google.auth.transport.requests import Request
-from google_auth_oauthlib.flow import Flow
 from loguru import logger
 
 from .token_storage import TokenStorage
-
 
 # OAuth configuration constants
 OAUTH_CLIENT_ID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
@@ -37,7 +33,7 @@ def get_available_port(start_port: int = 8080) -> int:
     for port in range(start_port, start_port + 100):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.bind(('localhost', port))
+                sock.bind(("localhost", port))
                 return port
         except OSError:
             continue
@@ -155,13 +151,12 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
     
     def log_message(self, format: str, *args) -> None:
         """Suppress default HTTP server logging."""
-        pass
 
 
 class GoogleOAuthManager:
     """Manages Google OAuth 2.0 authentication flow."""
     
-    def __init__(self, callback_host: str = "localhost", callback_port: Optional[int] = None) -> None:
+    def __init__(self, callback_host: str = "localhost", callback_port: int | None = None) -> None:
         """
         Initialize OAuth manager.
         
@@ -175,9 +170,9 @@ class GoogleOAuthManager:
         self.redirect_uri = f"http://{callback_host}:{self.callback_port}/oauth2callback"
         
         self.token_storage = TokenStorage()
-        self.state: Optional[str] = None
-        self.code_verifier: Optional[str] = None
-        self.auth_result: Optional[dict] = None
+        self.state: str | None = None
+        self.code_verifier: str | None = None
+        self.auth_result: dict | None = None
     
     def _generate_pkce_params(self) -> tuple[str, str]:
         """
@@ -187,12 +182,12 @@ class GoogleOAuthManager:
             Tuple of (code_verifier, code_challenge)
         """
         # Generate code verifier (43-128 characters)
-        code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode('utf-8').rstrip('=')
+        code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("utf-8").rstrip("=")
         
         # Generate code challenge
         code_challenge = base64.urlsafe_b64encode(
-            hashlib.sha256(code_verifier.encode('utf-8')).digest()
-        ).decode('utf-8').rstrip('=')
+            hashlib.sha256(code_verifier.encode("utf-8")).digest()
+        ).decode("utf-8").rstrip("=")
         
         return code_verifier, code_challenge
     
@@ -249,15 +244,15 @@ class GoogleOAuthManager:
         response = requests.post(token_url, data=data)
         
         if response.status_code != 200:
-            error_details = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
+            error_details = response.json() if response.headers.get("content-type", "").startswith("application/json") else response.text
             raise ValueError(f"Token exchange failed: {error_details}")
         
         tokens = response.json()
         
         # Add expiration timestamp
         if "expires_in" in tokens:
-            expires_at = datetime.now(timezone.utc).timestamp() + tokens["expires_in"]
-            tokens["expires_at"] = datetime.fromtimestamp(expires_at, timezone.utc).isoformat()
+            expires_at = datetime.now(UTC).timestamp() + tokens["expires_in"]
+            tokens["expires_at"] = datetime.fromtimestamp(expires_at, UTC).isoformat()
         
         return tokens
     
@@ -274,7 +269,7 @@ class GoogleOAuthManager:
         server = HTTPServer((self.callback_host, self.callback_port), handler_factory)
         return server
     
-    async def authenticate(self, open_browser: Optional[bool] = None) -> dict:
+    async def authenticate(self, open_browser: bool | None = None) -> dict:
         """
         Perform OAuth authentication flow.
         
@@ -344,7 +339,7 @@ class GoogleOAuthManager:
             logger.error(f"OAuth authentication failed: {e}")
             raise
     
-    def refresh_token(self) -> Optional[dict]:
+    def refresh_token(self) -> dict | None:
         """
         Refresh access token using stored refresh token.
         
@@ -379,8 +374,8 @@ class GoogleOAuthManager:
             
             # Add expiration timestamp
             if "expires_in" in new_tokens:
-                expires_at = datetime.now(timezone.utc).timestamp() + new_tokens["expires_in"]
-                tokens["expires_at"] = datetime.fromtimestamp(expires_at, timezone.utc).isoformat()
+                expires_at = datetime.now(UTC).timestamp() + new_tokens["expires_in"]
+                tokens["expires_at"] = datetime.fromtimestamp(expires_at, UTC).isoformat()
             
             self.token_storage.store_tokens(tokens)
             logger.debug("Successfully refreshed OAuth tokens")
@@ -391,7 +386,7 @@ class GoogleOAuthManager:
             logger.error(f"Token refresh failed: {e}")
             return None
     
-    def get_valid_access_token(self) -> Optional[str]:
+    def get_valid_access_token(self) -> str | None:
         """
         Get a valid access token, refreshing if necessary.
         
@@ -447,7 +442,7 @@ class GoogleOAuthManager:
             try:
                 expires_at = datetime.fromisoformat(tokens["expires_at"])
                 status["expires_at"] = expires_at.isoformat()
-                status["expired"] = expires_at <= datetime.now(timezone.utc)
+                status["expired"] = expires_at <= datetime.now(UTC)
             except ValueError:
                 status["expires_at"] = "Invalid format"
         

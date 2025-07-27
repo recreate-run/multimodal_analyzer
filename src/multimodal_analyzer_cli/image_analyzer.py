@@ -12,7 +12,11 @@ from .utils.file_discovery import validate_file_list
 from .utils.image import find_images
 from .utils.output import OutputFormatter
 from .utils.prompts import PromptManager
-from .utils.streaming import StreamingInputReader, StreamingOutputWriter, MessageExtractor
+from .utils.streaming import (
+    MessageExtractor,
+    StreamingInputReader,
+    StreamingOutputWriter,
+)
 
 
 class ImageAnalyzer:
@@ -206,9 +210,10 @@ class ImageAnalyzer:
         image_base64 = data
         
         # Create a temporary file from base64 data
-        import tempfile
-        from PIL import Image
         import io
+        import tempfile
+
+        from PIL import Image
         
         # Decode base64 to bytes
         image_bytes = base64.b64decode(image_base64)
