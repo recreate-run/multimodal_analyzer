@@ -26,6 +26,9 @@ Requires-Dist: pytest-cov>=6.2.1
 Requires-Dist: pytest>=8.4.1
 Requires-Dist: pytest-asyncio>=1.0.0
 Requires-Dist: diskcache>=5.6.3
+Requires-Dist: google-auth>=2.0.0
+Requires-Dist: google-auth-oauthlib>=1.0.0
+Requires-Dist: requests>=2.28.0
 
 # Media Analyzer CLI
 
@@ -35,10 +38,11 @@ AI-powered media analysis tool using multiple LLM providers through LiteLLM. Ana
 
 - **Multi-model Support**: Use Gemini, OpenAI, Claude, and more through LiteLLM
 - **Image, Audio & Video Analysis**: Single files or batch process entire directories
+- **Streaming JSON Input**: Multi-turn conversations via stdin JSONL for interactive analysis
 - **Hybrid File Input**: Specify files by directory path OR explicit file lists from multiple locations
 - **Automatic Image Preprocessing**: Images > 500KB are automatically converted to JPEG for optimal processing
 - **Concurrent Processing**: Configurable concurrency with progress tracking
-- **Multiple Output Formats**: JSON, Markdown, and Text export
+- **Multiple Output Formats**: JSON, Markdown, Text, and streaming JSON export
 - **Custom Prompts**: Flexible analysis with custom or predefined prompts
 
 ## Installation
@@ -207,6 +211,66 @@ multimodal-analyzer --type video --model gemini/gemini-2.5-flash \
   --word-count 300 --output json --output-file video_summaries.json
 ```
 
+## Streaming JSON Input
+
+Enable interactive, multi-turn conversations by providing JSON messages via stdin. Each line of input is a complete JSON message in JSONL format, allowing continuous analysis without re-launching the CLI.
+
+### Basic Streaming Usage
+
+```bash
+# Start streaming mode for image analysis
+echo '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Explain this image"},{"type":"image_url","image_url":{"url":"data:image/jpeg;base64,..."}}]}}' | \
+  multimodal-analyzer --type image --model gemini/gemini-2.5-flash -p . --input-format stream-json --output stream-json
+```
+
+### Streaming Requirements
+
+- **Required flags**: `--input-format stream-json` + `--output stream-json` + `-p`
+- **Incompatible with**: `--files`, `--output-file`, batch processing options
+- **Current support**: Image analysis only (audio/video coming soon)
+
+### Message Format
+
+**Input Message Structure:**
+```json
+{
+  "type": "user",
+  "message": {
+    "role": "user", 
+    "content": [
+      {"type": "text", "text": "Describe this image"},
+      {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,<base64-data>"}}
+    ]
+  }
+}
+```
+
+**Response Format:**
+```json
+{
+  "type": "assistant",
+  "message": {
+    "role": "assistant",
+    "content": "AI analysis response..."
+  },
+  "metadata": {
+    "success": true,
+    "model": "gemini/gemini-2.5-flash"
+  }
+}
+```
+
+### Interactive Usage Examples
+
+```bash
+# Multi-turn conversation with different images
+cat input.jsonl | multimodal-analyzer --type image --model gemini/gemini-2.5-flash -p . --input-format stream-json --output stream-json
+
+# Real-time processing with custom prompts
+echo '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"What colors do you see?"},{"type":"image_url","image_url":{"url":"data:image/jpeg;base64,..."}}]}}' | \
+  multimodal-analyzer --type image --model gpt-4o-mini -p . --input-format stream-json --output stream-json --word-count 50
+```
+
 ## Models
 
 Supports any model available through [LiteLLM](https://docs.litellm.ai/docs/providers).
@@ -224,7 +288,8 @@ Options:
   --video-mode [description]      Video analysis mode (required for video type)
   -w, --word-count INTEGER        Target description word count [default: 100]
   --prompt TEXT                   Custom analysis prompt
-  -o, --output [json|markdown|text] Output format [default: json]
+  -o, --output [json|markdown|text|stream-json] Output format [default: json]
+  --input-format [stream-json]    Input format for streaming mode (requires --output stream-json and -p)
   --output-file TEXT              Save results to file
   -r, --recursive                 Process directories recursively (only with --path)
   -c, --concurrency INTEGER       Concurrent requests [default: 3]
@@ -234,7 +299,9 @@ Options:
   --help                          Show help and exit
 ```
 
-**Note**: You must specify either `--path` OR `--files`, but not both. Use `--path` for directory processing and `--files` for explicit file lists.
+**Standard Mode**: You must specify either `--path` OR `--files`, but not both. Use `--path` for directory processing and `--files` for explicit file lists.
+
+**Streaming Mode**: Requires `--input-format stream-json`, `--output stream-json`, and `-p`. Cannot be used with `--files` or `--output-file`.
 
 ## Output Schema
 
@@ -252,9 +319,27 @@ Results are returned as an array of objects, one per analyzed file:
 ]
 ```
 
+### Streaming JSON Output Format
+
+Each response is a single JSON object written immediately to stdout:
+
+```json
+{
+  "type": "assistant",
+  "message": {
+    "role": "assistant",
+    "content": "AI-generated analysis text..."
+  },
+  "metadata": {
+    "success": true,
+    "model": "gemini/gemini-2.5-flash"
+  }
+}
+```
+
 ### Error Handling
 
-Failed analyses include error details:
+**Batch Mode** - Failed analyses include error details:
 
 ```json
 [
@@ -265,6 +350,23 @@ Failed analyses include error details:
     "error": "Error message"
   }
 ]
+```
+
+**Streaming Mode** - Errors are returned as immediate JSON responses:
+
+```json
+{
+  "type": "assistant",
+  "message": {
+    "role": "assistant",
+    "content": ""
+  },
+  "metadata": {
+    "success": false,
+    "model": "gemini/gemini-2.5-flash",
+    "error": "Error message"
+  }
+}
 ```
 
 ## Development

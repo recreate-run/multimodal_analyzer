@@ -229,10 +229,10 @@ class LiteLLMModel:
         if not self._validate_image(image_path):
             raise ValueError(f"Invalid image: {image_path}")
 
-        # Get API key for the model
+        # Get API key or OAuth token for the model
         api_key = self.config.get_api_key(model)
         if api_key:
-            # Set API key for litellm
+            # Set API key/token for litellm
             if model.startswith("gpt-") or model.startswith("openai/"):
                 litellm.openai_key = api_key
             elif model.startswith("claude-") or model.startswith("anthropic/"):
@@ -311,10 +311,15 @@ class LiteLLMModel:
         if not self._validate_audio(audio_path):
             raise ValueError(f"Invalid audio file: {audio_path}")
 
-        # Get API key for Gemini
+        # Get API key or OAuth token for Gemini
         api_key = self.config.get_api_key(model)
         if api_key:
             litellm.google_key = api_key
+            # Log authentication method for Google models
+            if self.config.google_oauth_enabled:
+                logger.debug("Using OAuth token for Google/Gemini authentication")
+            else:
+                logger.debug("Using API key for Google/Gemini authentication")
 
         # Encode audio to base64
         audio_base64 = self._encode_audio(audio_path)
@@ -411,10 +416,15 @@ class LiteLLMModel:
         if not self._validate_video(video_path):
             raise ValueError(f"Invalid video file: {video_path}")
 
-        # Get API key for Gemini
+        # Get API key or OAuth token for Gemini
         api_key = self.config.get_api_key(model)
         if api_key:
             litellm.google_key = api_key
+            # Log authentication method for Google models
+            if self.config.google_oauth_enabled:
+                logger.debug("Using OAuth token for Google/Gemini authentication")
+            else:
+                logger.debug("Using API key for Google/Gemini authentication")
 
         # Encode video to base64
         video_base64 = self._encode_video(video_path)
@@ -495,10 +505,10 @@ class LiteLLMModel:
     ) -> dict[str, Any]:
         """Analyze transcript text using specified LLM model."""
 
-        # Get API key for the model
+        # Get API key or OAuth token for the model
         api_key = self.config.get_api_key(model)
         if api_key:
-            # Set API key for litellm
+            # Set API key/token for litellm
             if model.startswith("azure/"):
                 litellm.azure_key = api_key
                 if (

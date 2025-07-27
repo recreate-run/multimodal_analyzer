@@ -5,6 +5,8 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
+from .auth import GoogleAuthProvider
+
 
 @dataclass
 class Config:
@@ -16,6 +18,9 @@ class Config:
     gemini_api_key: str | None = None
     AZURE_OPENAI_API_KEY: str | None = None
     azure_openai_endpoint: str | None = None
+
+    # Google authentication provider
+    google_auth_provider: GoogleAuthProvider | None = field(default=None, init=False)
 
     # Default settings
     default_model: str = "gemini/gemini-2.5-flash"
@@ -61,7 +66,7 @@ class Config:
     def load(cls, config_file: Path | None = None) -> "Config":
         """Load configuration from environment and optional YAML file."""
 
-        # Load environment variables
+        # Load environment variables (only for .env file support)
         load_dotenv()
 
         # Start with default config
@@ -72,44 +77,25 @@ class Config:
             with open(config_file) as f:
                 config_data = yaml.safe_load(f) or {}
 
-        # Override with environment variables
-        env_mapping = {
-            "OPENAI_API_KEY": "openai_api_key",
-            "ANTHROPIC_API_KEY": "anthropic_api_key",
-            "GEMINI_API_KEY": "gemini_api_key",
-            "AZURE_OPENAI_API_KEY": "AZURE_OPENAI_API_KEY",
-            "AZURE_OPENAI_ENDPOINT": "azure_openai_endpoint",
-            "DEFAULT_MODEL": "default_model",
-            "DEFAULT_WORD_COUNT": "default_word_count",
-            "DEFAULT_PROMPT": "default_prompt",
-            "MAX_CONCURRENCY": "max_concurrency",
-            "MAX_FILE_SIZE_MB": "max_file_size_mb",
-            "MAX_AUDIO_SIZE_MB": "max_audio_size_mb",
-            "MAX_VIDEO_SIZE_MB": "max_video_size_mb",
-            "RETRY_ATTEMPTS": "retry_attempts",
-            "TIMEOUT_SECONDS": "timeout_seconds",
-        }
+        # Load only essential API keys from environment
+        config_data.update({
+            "openai_api_key": os.getenv("OPENAI_API_KEY"),
+            "anthropic_api_key": os.getenv("ANTHROPIC_API_KEY"),
+            "gemini_api_key": os.getenv("GEMINI_API_KEY"),
+            "AZURE_OPENAI_API_KEY": os.getenv("AZURE_OPENAI_API_KEY"),
+            "azure_openai_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
+        })
 
-        for env_var, config_key in env_mapping.items():
-            if os.getenv(env_var):
-                value = os.getenv(env_var)
-                # Convert numeric values
-                if config_key in [
-                    "default_word_count",
-                    "max_concurrency",
-                    "max_file_size_mb",
-                    "max_audio_size_mb",
-                    "max_video_size_mb",
-                    "retry_attempts",
-                    "timeout_seconds",
-                ]:
-                    value = int(value)
-                config_data[config_key] = value
-
-        return cls(**config_data)
+        # Create config instance
+        config = cls(**config_data)
+        
+        # Initialize Google Auth Provider after config creation
+        config.google_auth_provider = GoogleAuthProvider.from_environment()
+        
+        return config
 
     def get_api_key(self, model: str) -> str | None:
-        """Get appropriate API key for the given model."""
+        """Get appropriate API key or OAuth token for the given model."""
         if model.startswith("azure/"):
             return self.AZURE_OPENAI_API_KEY
         if (
@@ -121,11 +107,16 @@ class Config:
         elif model.startswith("claude-") or model.startswith("anthropic/"):
             return self.anthropic_api_key
         elif model.startswith("gemini") or model.startswith("google/"):
+            # Use OAuth token if available, otherwise fall back to API key
+            if self.google_auth_provider:
+                auth_token = self.google_auth_provider.get_auth_token()
+                if auth_token:
+                    return auth_token
             return self.gemini_api_key
         return None
 
     def validate_api_keys(self, model: str) -> None:
-        """Validate that required API key is present for the given model."""
+        """Validate that required authentication is available for the given model."""
         if model.startswith("azure/"):
             if not self.AZURE_OPENAI_API_KEY or self.AZURE_OPENAI_API_KEY.strip() == "":
                 raise ValueError("AZURE_OPENAI_API_KEY environment variable is required for Azure models")
@@ -133,14 +124,23 @@ class Config:
                 raise ValueError("AZURE_OPENAI_ENDPOINT environment variable is required for Azure models")
             return
 
+        # Special handling for Google/Gemini models with OAuth support
+        if model.startswith(("gemini", "google/")):
+            if self.google_auth_provider:
+                self.google_auth_provider.validate_for_model(model)
+            else:
+                # Fallback to API key validation
+                if not self.gemini_api_key or self.gemini_api_key.strip() == "":
+                    raise ValueError("GEMINI_API_KEY environment variable is required for Google models")
+            return
+
+        # Standard API key validation for other providers
         api_key = self.get_api_key(model)
         if not api_key or api_key.strip() == "":
             if model.startswith(("gpt-", "openai/", "whisper")):
                 raise ValueError("OPENAI_API_KEY environment variable is required for OpenAI models")
             elif model.startswith(("claude-", "anthropic/")):
                 raise ValueError("ANTHROPIC_API_KEY environment variable is required for Anthropic models")
-            elif model.startswith(("gemini", "google/")):
-                raise ValueError("GEMINI_API_KEY environment variable is required for Google models")
             else:
                 raise ValueError(f"No API key available for model: {model}")
 

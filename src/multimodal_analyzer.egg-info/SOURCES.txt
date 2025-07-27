@@ -13,6 +13,10 @@ src/multimodal_analyzer_cli/cli.py
 src/multimodal_analyzer_cli/config.py
 src/multimodal_analyzer_cli/image_analyzer.py
 src/multimodal_analyzer_cli/video_analyzer.py
+src/multimodal_analyzer_cli/auth/__init__.py
+src/multimodal_analyzer_cli/auth/google_auth.py
+src/multimodal_analyzer_cli/auth/oauth_manager.py
+src/multimodal_analyzer_cli/auth/token_storage.py
 src/multimodal_analyzer_cli/models/__init__.py
 src/multimodal_analyzer_cli/models/litellm_model.py
 src/multimodal_analyzer_cli/prompts/audio_system_prompt.md
@@ -24,6 +28,7 @@ src/multimodal_analyzer_cli/utils/file_discovery.py
 src/multimodal_analyzer_cli/utils/image.py
 src/multimodal_analyzer_cli/utils/output.py
 src/multimodal_analyzer_cli/utils/prompts.py
+src/multimodal_analyzer_cli/utils/streaming.py
 src/multimodal_analyzer_cli/utils/video.py
 tests/test_audio_analyzer.py
 tests/test_cli.py
@@ -31,5 +36,6 @@ tests/test_cli_audio.py
 tests/test_cli_video.py
 tests/test_image_analyzer.py
 tests/test_models.py
+tests/test_streaming.py
 tests/test_utils.py
 tests/test_video_analyzer.py

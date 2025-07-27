@@ -20,19 +20,18 @@ def get_concurrency_help() -> str:
         return "Concurrent requests for batch processing"
 
 
-@click.command()
+@click.group(invoke_without_command=True)
+@click.pass_context
 @click.option(
     "--type",
     "type_",
     "-t",
-    required=True,
     type=click.Choice(["image", "audio", "video"]),
     help="Analysis type: image, audio, or video",
 )
 @click.option(
     "--model",
     "-m",
-    required=True,
     help="LiteLLM model (e.g., gemini/gemini-2.5-flash, gpt-4o-mini)",
 )
 @click.option(
@@ -100,8 +99,9 @@ def get_concurrency_help() -> str:
 )
 @click.version_option(package_name="multimodal-analyzer")
 def main(
-    type_: str,
-    model: str,
+    ctx: click.Context,
+    type_: str | None,
+    model: str | None,
     path: str | None,
     files: tuple[str, ...],
     audio_mode: str | None,
@@ -118,6 +118,16 @@ def main(
     verbose: bool,
 ) -> None:
     """AI-powered media analysis tool supporting image, audio, and video content."""
+
+    # If a subcommand was invoked, return early
+    if ctx.invoked_subcommand is not None:
+        return
+
+    # For the main analysis command, type and model are required
+    if not type_:
+        raise click.ClickException("--type is required for analysis")
+    if not model:
+        raise click.ClickException("--model is required for analysis")
 
     # Validate mutually exclusive options
     if path and files:
@@ -293,6 +303,131 @@ def main(
         except Exception as e:
             logger.error(f"Video analysis failed: {e}")
             raise click.ClickException(str(e))
+
+
+@main.group()
+def auth() -> None:
+    """Authentication management commands."""
+    pass
+
+
+@auth.command()
+@click.option(
+    "--no-browser", 
+    is_flag=True, 
+    help="Don't open browser automatically (display URL instead)"
+)
+@click.option(
+    "--callback-host", 
+    default="localhost", 
+    help="OAuth callback host [default: localhost]"
+)
+@click.option(
+    "--callback-port", 
+    default=8080, 
+    type=int,
+    help="OAuth callback port [default: 8080]"
+)
+def login(no_browser: bool, callback_host: str, callback_port: int) -> None:
+    """Authenticate with Google OAuth."""
+    try:
+        from .auth import GoogleOAuthManager
+        
+        # Create OAuth manager with custom settings if provided
+        oauth_manager = GoogleOAuthManager(
+            callback_host=callback_host,
+            callback_port=callback_port
+        )
+        
+        click.echo("🔐 Starting Google OAuth authentication...")
+        
+        # Run authentication
+        result = asyncio.run(oauth_manager.authenticate(open_browser=not no_browser))
+        
+        if result:
+            click.echo("✅ Google OAuth authentication successful!")
+            click.echo("You can now use Gemini models with OAuth authentication.")
+        else:
+            click.echo("❌ Authentication failed.")
+            raise click.ClickException("OAuth authentication failed")
+            
+    except ImportError:
+        click.echo("❌ OAuth dependencies not available. Please reinstall with OAuth support.")
+        raise click.ClickException("OAuth not available")
+    except Exception as e:
+        logger.error(f"Authentication failed: {e}")
+        click.echo(f"❌ Authentication failed: {e}")
+        raise click.ClickException(str(e))
+
+
+@auth.command()
+def logout() -> None:
+    """Clear stored OAuth credentials."""
+    try:
+        from .auth import GoogleOAuthManager
+        
+        oauth_manager = GoogleOAuthManager()
+        oauth_manager.logout()
+        
+        click.echo("✅ Successfully logged out - OAuth tokens cleared")
+        
+    except ImportError:
+        click.echo("❌ OAuth dependencies not available.")
+        raise click.ClickException("OAuth not available")
+    except Exception as e:
+        logger.error(f"Logout failed: {e}")
+        click.echo(f"❌ Logout failed: {e}")
+        raise click.ClickException(str(e))
+
+
+@auth.command()
+@click.option(
+    "--verbose", 
+    "-v", 
+    is_flag=True, 
+    help="Show detailed authentication information"
+)
+def status(verbose: bool) -> None:
+    """Show current authentication status."""
+    try:
+        from .auth import GoogleAuthProvider
+        
+        # Load config to get OAuth settings
+        config = Config.load()
+        
+        # Create auth provider
+        auth_provider = GoogleAuthProvider.from_environment()
+        
+        # Get status
+        status_info = auth_provider.get_auth_status()
+        
+        click.echo("🔍 Authentication Status:")
+        click.echo(f"  API Key Available: {'✅' if status_info['has_api_key'] else '❌'}")
+        click.echo(f"  OAuth Authenticated: {'✅' if status_info['oauth_authenticated'] else '❌'}")
+        click.echo(f"  Overall Status: {'✅ Authenticated' if status_info['authenticated'] else '❌ Not Authenticated'}")
+        click.echo(f"  Auth Method: {status_info['auth_method']}")
+        
+        if verbose:
+            oauth_details = status_info.get('oauth_details', {})
+            
+            if 'expires_at' in oauth_details:
+                click.echo(f"  Token Expires: {oauth_details['expires_at']}")
+            if 'has_refresh_token' in oauth_details:
+                click.echo(f"  Has Refresh Token: {'✅' if oauth_details['has_refresh_token'] else '❌'}")
+        
+        # Show usage instructions if not authenticated
+        if not status_info['authenticated']:
+            click.echo("\n💡 To authenticate:")
+            click.echo("  Run: multimodal-analyzer auth login")
+            click.echo("  Or set GEMINI_API_KEY environment variable")
+        
+    except ImportError:
+        click.echo("❌ OAuth dependencies not available.")
+        raise click.ClickException("OAuth not available")
+    except Exception as e:
+        logger.error(f"Status check failed: {e}")
+        click.echo(f"❌ Status check failed: {e}")
+        raise click.ClickException(str(e))
 
 
 if __name__ == "__main__":

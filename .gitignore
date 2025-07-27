@@ -26,3 +26,4 @@ build/
 # IDE
 .cursor/
 .vscode/
+gemini-cli-main
