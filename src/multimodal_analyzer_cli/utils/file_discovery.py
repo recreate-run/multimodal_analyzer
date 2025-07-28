@@ -1,5 +1,6 @@
 """File discovery utilities for hybrid input support."""
 
+import unicodedata
 from pathlib import Path
 
 from .audio import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS, is_audio_file, is_video_file
@@ -41,6 +42,7 @@ def validate_file_list(files: list[str], media_type: str) -> list[Path]:
     validated_files = []
     
     for file_path_str in files:
+        file_path_str = unicodedata.normalize('NFC', file_path_str)
         file_path = Path(file_path_str)
         
         if not file_path.exists():

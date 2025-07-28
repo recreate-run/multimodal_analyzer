@@ -1,4 +1,4 @@
-# Media Analyzer CLI
+# Multimodal Analyzer CLI
 
 AI-powered media analysis tool using multiple LLM providers through LiteLLM. Analyze images, audio, and video files with customizable prompts and output formats.
 
@@ -39,7 +39,7 @@ uv tool install --reinstall .
 ```
 ## Hybrid File Input Support
 
-The Media Analyzer CLI supports two flexible input modes:
+The Multimodal Analyzer CLI supports two flexible input modes:
 
 ### Directory Path Mode (`--path`)
 Use `--path` to analyze files from directories or single files:

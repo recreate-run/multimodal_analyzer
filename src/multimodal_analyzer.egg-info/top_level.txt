@@ -1,4 +1,2 @@
-models
-multimodal_analyzer
 multimodal_analyzer_cli
 utils

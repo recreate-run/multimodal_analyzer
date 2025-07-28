@@ -33,13 +33,13 @@ def get_concurrency_help() -> str:
 @click.option(
     "--model",
     "-m",
-    required=True,
-    help="LiteLLM model (e.g., gemini/gemini-2.5-flash, gpt-4o-mini)",
+    default="gemini/gemini-2.5-flash",
+    help="LiteLLM model [default: gemini/gemini-2.5-flash]",
 )
 @click.option(
     "--path",
     "-p",
-    type=click.Path(exists=True),
+    type=click.Path(),
     help="Media file or directory path",
 )
 @click.option(
@@ -67,7 +67,7 @@ def get_concurrency_help() -> str:
 @click.option("--prompt", help="Custom analysis prompt")
 @click.option(
     "--system",
-    type=click.Path(exists=True),
+    type=click.Path(),
     help="Path to custom system prompt file (overrides default for media type)"
 )
 @click.option(
@@ -103,7 +103,7 @@ def get_concurrency_help() -> str:
 def main(
     ctx: click.Context,
     type_: str | None,
-    model: str | None,
+    model: str,
     path: str | None,
     files: tuple[str, ...],
     audio_mode: str | None,

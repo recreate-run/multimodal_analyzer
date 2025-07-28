@@ -1,6 +1,6 @@
 [project]
 name = "multimodal-analyzer"
-version = "0.2.6"
+version = "0.2.7"
 description = "AI-powered media analysis tool for images, audio, and video using multiple LLM providers"
 readme = "README.md"
 requires-python = ">=3.12"
