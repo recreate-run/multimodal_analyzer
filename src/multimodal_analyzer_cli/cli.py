@@ -11,6 +11,24 @@ from .image_analyzer import ImageAnalyzer
 from .video_analyzer import VideoAnalyzer
 
 
+def normalize_path(path_str: str) -> str:
+    """Normalize path strings by removing quotes and unescaping backslashes."""
+    if not path_str:
+        return path_str
+    
+    # Strip surrounding quotes
+    if (path_str.startswith('"') and path_str.endswith('"')) or \
+       (path_str.startswith("'") and path_str.endswith("'")):
+        path_str = path_str[1:-1]
+    
+    # Unescape backslash-escaped spaces and other common shell escapes
+    path_str = path_str.replace('\\ ', ' ')
+    path_str = path_str.replace('\\(', '(')
+    path_str = path_str.replace('\\)', ')')
+    
+    return path_str
+
+
 def get_concurrency_help() -> str:
     """Generate dynamic help text for concurrency option."""
     try:
@@ -27,7 +45,6 @@ def get_concurrency_help() -> str:
     "type_",
     "-t",
     type=click.Choice(["image", "audio", "video"]),
-    required=True,
     help="Analysis type: image, audio, or video",
 )
 @click.option(
@@ -124,6 +141,10 @@ def main(
     # If a subcommand was invoked, return early
     if ctx.invoked_subcommand is not None:
         return
+    
+    # Require --type for main analysis functionality
+    if type_ is None:
+        raise click.ClickException("--type is required when not using subcommands")
 
     # Validate mutually exclusive options
     if path and files:
@@ -225,8 +246,8 @@ def main(
             result = asyncio.run(
                 analyzer.analyze(
                     model=model,
-                    path=Path(path) if path else None,
-                    file_list=[Path(f) for f in files] if files else None,
+                    path=Path(normalize_path(path)) if path else None,
+                    file_list=[Path(normalize_path(f)) for f in files] if files else None,
                     word_count=word_count,
                     prompt=prompt,
                     output_format=output,
@@ -252,8 +273,8 @@ def main(
             result = asyncio.run(
                 analyzer.analyze(
                     model=model,
-                    path=Path(path) if path else None,
-                    file_list=[Path(f) for f in files] if files else None,
+                    path=Path(normalize_path(path)) if path else None,
+                    file_list=[Path(normalize_path(f)) for f in files] if files else None,
                     mode=audio_mode,
                     word_count=word_count,
                     prompt=prompt,
@@ -280,8 +301,8 @@ def main(
             result = asyncio.run(
                 analyzer.analyze(
                     model=model,
-                    path=Path(path) if path else None,
-                    file_list=[Path(f) for f in files] if files else None,
+                    path=Path(normalize_path(path)) if path else None,
+                    file_list=[Path(normalize_path(f)) for f in files] if files else None,
                     mode=video_mode,
                     word_count=word_count,
                     prompt=prompt,

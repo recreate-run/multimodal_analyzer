@@ -339,6 +339,16 @@ class GoogleOAuthManager:
             logger.error(f"OAuth authentication failed: {e}")
             raise
     
+    def has_oauth_setup(self) -> bool:
+        """
+        Check if OAuth has been previously configured (tokens exist).
+        
+        Returns:
+            True if OAuth tokens exist (even if expired), False if never set up
+        """
+        tokens = self.token_storage.load_tokens()
+        return tokens is not None and bool(tokens)
+
     def refresh_token(self) -> dict | None:
         """
         Refresh access token using stored refresh token.
@@ -349,7 +359,9 @@ class GoogleOAuthManager:
         try:
             tokens = self.token_storage.load_tokens()
             if not tokens or "refresh_token" not in tokens:
-                logger.warning("No refresh token available")
+                # Only warn if OAuth was previously set up but tokens are missing/invalid
+                if self.has_oauth_setup():
+                    logger.warning("No refresh token available")
                 return None
             
             refresh_url = "https://oauth2.googleapis.com/token"
@@ -396,6 +408,11 @@ class GoogleOAuthManager:
         # Check current tokens
         if self.token_storage.is_token_valid():
             return self.token_storage.get_access_token()
+        
+        # Only proceed with refresh if OAuth was previously set up
+        if not self.has_oauth_setup():
+            # No OAuth setup - silently return None to allow API key fallback
+            return None
         
         # Try to refresh
         logger.debug("Access token expired, attempting refresh...")

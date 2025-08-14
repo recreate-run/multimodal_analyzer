@@ -337,6 +337,23 @@ Each response is a single JSON object written immediately to stdout:
 }
 ```
 
+## Authentication
+
+### Google OAuth
+
+For Gemini models, you can use OAuth authentication instead of API keys:
+
+```bash
+# Authenticate with Google OAuth
+multimodal-analyzer auth login
+
+# Check authentication status
+multimodal-analyzer auth status
+
+# Clear stored credentials
+multimodal-analyzer auth logout
+```
+
 ## Development
 
 ### Running Tests
