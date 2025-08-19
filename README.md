@@ -22,6 +22,12 @@ AI-powered media analysis tool using multiple LLM providers through LiteLLM. Ana
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
+### Install from PyPI
+
+```bash
+uv tool install multimodal-analyzer
+```
+
 ### Install from Source (Recommended for Users)
 
 To install and use the tool system-wide:
@@ -432,4 +438,17 @@ Enable detailed logging for troubleshooting:
 
 ```bash
 multimodal-analyzer --type image --model gemini/gemini-2.5-flash --path image.jpg --log-level DEBUG
+```
+
+## Publishing
+
+To publish a new version to PyPI:
+
+1. **Update version**: Edit `version` in `pyproject.toml`
+2. **Build package**: `uv build --no-sources`
+3. **Publish**: `uv publish --token YOUR_PYPI_TOKEN`
+
+For testing, publish to TestPyPI first:
+```bash
+uv publish --token YOUR_TEST_PYPI_TOKEN --index testpypi
 ```

@@ -1,6 +1,6 @@
 [project]
 name = "multimodal-analyzer"
-version = "0.2.7"
+version = "0.1.0"
 description = "AI-powered media analysis tool for images, audio, and video using multiple LLM providers"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -46,8 +46,6 @@ multimodal-analyzer = "multimodal_analyzer_cli.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/multimodal_analyzer_cli"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/multimodal_analyzer_cli/prompts" = "multimodal_analyzer_cli/prompts"
 
 [tool.uv]
 dev-dependencies = [
