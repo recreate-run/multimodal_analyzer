@@ -31,8 +31,8 @@ To install and use the tool system-wide:
 git clone https://github.com/sarath-menon/multimodal-analyzer.git
 cd multimodal-analyzer
 
-# Install globally with uv
-uv tool install .
+# Install globally with uv (specify Python 3.12.8)
+uv tool install --python 3.12.8 .
 ```
 
 After installation, the `multimodal-analyzer` command will be available system-wide.
@@ -70,7 +70,7 @@ To update or reinstall:
 ```bash
 cd multimodal-analyzer
 git pull
-uv tool install --force-reinstall .
+uv tool install --python 3.12.8 --force-reinstall .
 ```
 
 ## Hybrid File Input Support
