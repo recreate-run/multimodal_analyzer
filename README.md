@@ -15,33 +15,70 @@ AI-powered media analysis tool using multiple LLM providers through LiteLLM. Ana
 
 ## Installation
 
-**Global Installation (Recommended)**
+### Prerequisites
 
 ```bash
-# Build and install multimodal-analyzer globally
-uv build
-uv sync
-uv tool install dist/multimodal_analyzer-<version>-py3-none-any.whl
-rm -rf dist
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-**Development Installation**
+### Install from Source (Recommended for Users)
+
+To install and use the tool system-wide:
 
 ```bash
-git clone <repository-url>
+# Clone the repository
+git clone https://github.com/sarath-menon/multimodal-analyzer.git
 cd multimodal-analyzer
-uv sync
+
+# Install globally with uv
+uv tool install .
 ```
 
-Reinstall
+After installation, the `multimodal-analyzer` command will be available system-wide.
+
+### Development Setup
+
+For development and contributing:
+
+```bash
+# Clone the repository
+git clone https://github.com/sarath-menon/multimodal-analyzer.git
+cd multimodal-analyzer
+
+# Install dependencies
+uv sync
+
+# Run commands with uv run prefix
+uv run multimodal-analyzer --help
 ```
-uv tool install --reinstall .
+
+### Verify Installation
+
+```bash
+# Check if installation worked
+multimodal-analyzer --version
+
+# Or for development setup
+uv run multimodal-analyzer --version
 ```
+
+### Reinstalling
+
+To update or reinstall:
+
+```bash
+cd multimodal-analyzer
+git pull
+uv tool install --force-reinstall .
+```
+
 ## Hybrid File Input Support
 
 The Multimodal Analyzer CLI supports two flexible input modes:
 
 ### Directory Path Mode (`--path`)
+
 Use `--path` to analyze files from directories or single files:
 
 ```bash
@@ -56,6 +93,7 @@ multimodal-analyzer --type image --model gemini/gemini-2.5-flash --path ./datase
 ```
 
 ### Explicit File List Mode (`--files`)
+
 Use `--files` to specify exact files from multiple locations:
 
 ```bash
@@ -200,6 +238,7 @@ echo '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"
 ### Message Format
 
 **Input Message Structure:**
+
 ```json
 {
   "type": "user",
@@ -214,6 +253,7 @@ echo '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"
 ```
 
 **Response Format:**
+
 ```json
 {
   "type": "assistant",
@@ -242,7 +282,6 @@ echo '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"
 ## Models
 
 Supports any model available through [LiteLLM](https://docs.litellm.ai/docs/providers).
-
 
 ## Command Line Options
 
@@ -360,10 +399,11 @@ multimodal-analyzer auth logout
 
 **Important**: All tests require valid API keys and fail immediately if missing.
 
-
 # Run tests
+
 uv run pytest
 uv run pytest --cov  # with coverage
+
 ```
 
 ### Development Philosophy

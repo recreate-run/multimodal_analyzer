@@ -36,14 +36,17 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["setuptools>=64", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.package-data]
-multimodal_analyzer_cli = ["prompts/*.md"]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project.scripts]
 multimodal-analyzer = "multimodal_analyzer_cli.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/multimodal_analyzer_cli"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/multimodal_analyzer_cli/prompts" = "multimodal_analyzer_cli/prompts"
 
 [tool.uv]
 dev-dependencies = [
